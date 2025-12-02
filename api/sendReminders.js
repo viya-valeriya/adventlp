@@ -1,78 +1,101 @@
 // api/sendReminders.js
 
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-
-// Инициализация Firebase Admin (один раз)
-function getAdminDb() {
-  if (!getApps().length) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-    initializeApp({
-      credential: cert(serviceAccount),
-    });
-  }
-  return getFirestore();
-}
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
+const FIREBASE_PROJECT_ID = "adventlp";
 
 export default async function handler(req, res) {
   try {
-    const db = getAdminDb();
+    if (!BOT_TOKEN || !FIREBASE_API_KEY) {
+      return res.status(500).json({
+        ok: false,
+        error: "Missing TELEGRAM_BOT_TOKEN or FIREBASE_API_KEY env vars",
+      });
+    }
 
-    // Текущее UTC-время HH:MM
     const now = new Date();
-    const currentTime = now.toISOString().slice(11, 16); // "HH:MM"
+    const currentTime = now.toISOString().slice(11, 16); // HH:MM
 
-    // Пользователи с включёнными напоминаниями и совпадающим временем
-    const snapshot = await db
-      .collection('reminders')
-      .where('enabled', '==', true)
-      .where('time', '==', currentTime)
-      .get();
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery?key=${FIREBASE_API_KEY}`;
 
-    const users = snapshot.docs.map((d) => d.data());
+    const body = {
+      structuredQuery: {
+        from: [{ collectionId: "reminders" }],
+        where: {
+          compositeFilter: {
+            op: "AND",
+            filters: [
+              {
+                fieldFilter: {
+                  field: { fieldPath: "enabled" },
+                  op: "EQUAL",
+                  value: { booleanValue: true },
+                },
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: "time" },
+                  op: "EQUAL",
+                  value: { stringValue: currentTime },
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
 
-    if (!users.length) {
+    const firestoreResponse = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const queryRes = await firestoreResponse.json();
+
+    // Если Firestore вернул ошибку — не падаем, а показываем её
+    if (!Array.isArray(queryRes)) {
+      console.error("Firestore error response:", queryRes);
+      return res.status(500).json({
+        ok: false,
+        source: "firestore",
+        response: queryRes,
+      });
+    }
+
+    const matches = queryRes
+      .filter((r) => r.document && r.document.fields)
+      .map((r) => r.document.fields);
+
+    if (!matches.length) {
       return res.status(200).json({
         ok: true,
-        message: 'No users at this time',
+        message: "No reminders at this time",
         time: currentTime,
       });
     }
 
-    const sendMessage = (chatId, text) =>
-      fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-          }),
-        }
-      );
+    const sendMsg = (chatId) =>
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: "✨ Новый день уже настал! Загляни в адвент 🎄",
+        }),
+      });
 
-    const results = await Promise.all(
-      users.map((u) =>
-        sendMessage(
-          u.chatId,
-          '✨ Новый день в адвенте уже настал! Загляни в календарь 🎄'
-        )
-      )
+    await Promise.all(
+      matches.map((u) => sendMsg(u.chatId.stringValue))
     );
 
     res.status(200).json({
       ok: true,
-      sent: users.length,
+      sent: matches.length,
       time: currentTime,
     });
   } catch (e) {
-    console.error('sendReminders ERROR:', e);
-    res.status(500).json({ ok: false, error: e.message });
+    console.error("sendReminders ERROR:", e);
+    res.status(500).json({ ok: false, error: String(e) });
   }
 }
