@@ -1,448 +1,880 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Lock,
   Sparkles,
+  X,
+  Gift,
+  Settings,
   TreePine,
   Coffee,
   CloudSun,
   Heart,
   Feather,
-  Users,
-  Gift,
+  Compass,
+  Cat,
+  Shield,
   Smile,
+  ShoppingBag,
+  BatteryCharging,
+  Wind,
+  Clock,
   BookOpen,
   Rocket,
+  Crown,
+  Users,
+  Puzzle,
   PartyPopper,
   Music,
-  Sun
-} from "lucide-react";
+  Sun,
+} from 'lucide-react';
 
-import { initializeApp } from "firebase/app";
+import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInAnonymously,
-  onAuthStateChanged
-} from "firebase/auth";
+  onAuthStateChanged,
+} from 'firebase/auth';
 import {
   getFirestore,
   collection,
   doc,
   setDoc,
   onSnapshot,
-  serverTimestamp
-} from "firebase/firestore";
+  serverTimestamp,
+  getDoc,
+} from 'firebase/firestore';
 
-// --- ТВОЙ FIREBASE CONFIG ---
+// --- КОНФИГУРАЦИЯ FIREBASE ---
 const firebaseConfig = {
-  apiKey: "AIzaSyCOHeMkOIwG0ddkwh3zz4o5pyfR97jPS50",
-  authDomain: "adventlp.firebaseapp.com",
-  projectId: "adventlp",
-  storageBucket: "adventlp.firebasestorage.app",
-  messagingSenderId: "1025160764098",
-  appId: "1:1025160764098:web:35d99c13486ece5753f95b",
-  measurementId: "G-SNGM8LTHJX"
+  apiKey: 'AIzaSyCOHeMkOIwG0ddkwh3zz4o5pyfR97jPS50',
+  authDomain: 'adventlp.firebaseapp.com',
+  projectId: 'adventlp',
+  storageBucket: 'adventlp.firebasestorage.app',
+  messagingSenderId: '1025160764098',
+  appId: '1:1025160764098:web:35d99c13486ece5753f95b',
+  measurementId: 'G-SNGM8LTHJX',
 };
 
-// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const appId = 'adventlp-web';
 
-// Идентификатор приложения в Firestore
-const APP_ID = "lifepactic-advent";
-
-// Цвета
+// --- ЦВЕТОВАЯ ПАЛИТРА ---
 const COLORS = {
-  white: "#ffffff",
-  dawnPink: "#f1eae0",
-  tuatara: "#363636",
-  fireEngineRed: "#c82926",
-  rodeoDust: "#c7b895",
-  bone: "#e3dbca",
-  forestGreen: "#2f855a"
+  white: '#ffffff',
+  dawnPink: '#f1eae0',
+  tuatara: '#363636',
+  fireEngineRed: '#c82926',
+  kimberly: '#706c91',
+  rodeoDust: '#c7b895',
+  bone: '#e3dbca',
+  forestGreen: '#2f855a',
 };
 
-// Пул пожеланий
+// --- ПОЖЕЛАНИЯ ---
 const WISHES_POOL = [
-  "Ты — автор своей истории, даже если сейчас сложная глава - самое время писать следующую!",
-  "Найди сегодня минуту размеренности — такой, как когда наблюдаешь за снежинками и просто дышишь.",
-  "Устрой себе 30 минут ничегонеделания — побудь в моменте без задач и тревоги.",
-  "Подари себе сегодня немного тепла — позвони близкому или обними того, кто рядом.",
-  "Найди время для уединения с хорошей книгой.",
-  "Пополни запас энергии — чем-то вкусным и тёплым.",
-  "Сделай шаг к тому, кем хочешь быть в новом году.",
-  "Позволь себе мечтать чуть смелее.",
-  "Посмотри на огоньки вокруг — отметь, что зажигает внутри.",
-  "Обними свою сегодняшнюю версию — она достойна тепла."
+  'Ты — автор своей истории, даже если сейчас сложная глава - самое время писать следующую!',
+  'Найди сегодня минуту размеренности — такой, как когда наблюдаешь за снежинками и просто дышишь.',
+  'Устрой себе 30 минут ничегонеделания — побудь в моменте без задач, спешки и тревоги. Насладись моментом.',
+  'Подари себе сегодня немного тепла — позвони близкому или обними того, кто рядом.',
+  'Найди время для уединения с хорошей книгой.',
+  'Открой день для нового знакомства — маленького, но вдохновляющего.',
+  'Пополни запас энергии — чем-то вкусным, тёплым или приятным.',
+  'Отметь своё достижение — даже если оно крошечное, оно твоё.',
+  'Сделай паузу ради качественного отдыха, а не «на бегу».',
+  'Устрой себе маленький ритуал, который повышает качество жизни.',
+  'Позаботься о себе так же качественно, как о проекте.',
+  'Скажи себе что-то доброе — так, как сказал бы в поддержку коллегe.',
+  'Спроси себя: Что бы я сделал для друга? — и сделай это для себя.',
+  'Пожелай кому-то хорошего дня — искренне.',
+  'Сделай сегодня маленький смелый шаг.',
+  'Прими решение, которое давно откладывал.',
+  'Сделай шаг к тому, кем хочешь быть в новом году.',
+  'Найди то, что делает тебя особенным — и улыбнись этому.',
+  'Отмечай необычные мысли — там источник творчества.',
+  'Позволь себе быть «странным» ровно настолько, чтобы чувствовать себя.',
+  'Прими комплимент своей неповторимости.',
+  'Признай, что ты сегодня чувствуешь — без фильтров.',
+  'Скажи себе правду про свои желания.',
+  'Прими похвалу честно, без обесценивания.',
+  'Спроси себя: “Что мне на самом деле нужно сейчас?”',
+  'Признай свою силу — без скромности.',
+  'Узнай сегодня что-то новое — пусть даже одну строчку.',
+  'Сделай шаг вперёд там, где обычно сомневаешься.',
+  'Посмотри на задачу под другим углом.',
+  'Спроси у себя: “Что новое я могу попробовать сегодня?”',
+  'Сделай одну вещь, которая делает тебя лучше, чем вчера.',
+  'Отметь, где ты уже вырос как человек?',
+  'Позволь себе ошибаться — ради роста.',
+  'Подумай о версии себя через год — и сделай шаг к ней.',
+  'Найди лучик света в своём дне — он точно есть.',
+  'Вспомни, что всегда есть путь, даже если его пока не видно.',
+  'Подумай о будущем, которое греет.',
+  'Посмотри на что-то красивое — и почувствуй лёгкость.',
+  'Сделай что-то, что дарит ощущение «всё будет хорошо».',
+  'Позволь себе поверить, что впереди много хорошего.',
+  'Сделай сегодня что-то, что вдохновляет тебя хотя бы на 1%.',
+  'Слушай музыку, которая поднимает настроение.',
+  'Зажги свечу и создай атмосферу для творчества.',
+  'Позволь себе мечтать чуть смелее.',
+  'Почувствуй красоту момента — даже если он короткий.',
+  'Устрой себе пяти минутку творческого хаоса.',
+  'Делай что-то с огоньком — даже если это мелочь.',
+  'Сделай что-то качественное ради будущего себя.',
+  'Вдохнови себя мыслью, что у тебя получается.',
+  'Позволь уникальности вести тебя в решениях.',
+  'Приложи лидерство там, где нужен маленький шаг вперёд.',
+  'Поддержи коллегу — как поддержал(а) бы себя.',
+  'Заметь рост, который произошёл незаметно.',
+  'Выбери действие, которое делает тебя лучше.',
+  'Отдавай сегодня свет, который хочешь получать.',
+  'Поймай вдохновение в простом моменте.',
+  'Прислушайся к себе честно — и сделай вывод мягко.',
+  'Удели внимание тому, что делает тебя уникальным человеком.',
+  'Найди сегодня минуту тишины — такую, в которой слышно, как декабрь успокаивает воздух.',
+  'Позволь себе замедлиться так, будто за окном впервые пошёл снег.',
+  'Подари себе ощущение начала — как утром первого января.',
+  'Сделай глоток горячего напитка и почувствуй, как возвращается спокойствие.',
+  'Скажи себе добрые слова так, будто кладёшь их под новогоднюю ёлку.',
+  'Подари себе ощущение обновления — будто год вот-вот сменится.',
+  'Посмотри на огоньки вокруг и отметь то, что зажигает внутри тебя.',
+  'Позволь себе мечтать шире — декабрь любит мечты.',
+  'Устрой 30 минут уюта — плед, тишина и ты.',
+  'Представь, что этот день — подарок. Открой его медленно, насладись.',
+  'Найди силу в себе — ту самую, которая помогает загадывать желания.',
+  'Подари себе немного веры в лучшее — как в новогоднюю ночь.',
+  'Заметь свет вокруг: в словах, людях, моментах.',
+  'Отметь всё, что ты прожил(а) в этом году — и поблагодари себя.',
+  'Позволь себе выдохнуть — как будто закрываешь последний рабочий день года.',
+  'Создай себе атмосферу, в которой хочется быть.',
+  'Вдохни глубже — воздух декабря всегда чище.',
+  'Посмотри на свой путь, как на гирлянду из маленьких побед.',
+  'Зажги свою внутреннюю «лампочку» — вдохновением или заботой.',
+  'Устрой себе аромат праздника — тем, что любишь именно ты.',
+  'Представь, что каждый шаг сегодня — шаг в новый год.',
+  'Найди что-то, что делает этот день особенным.',
+  'Услышь своё желание — то самое, настоящее.',
+  'Сделай доброе действие для себя — как подарок в декабре.',
+  'Устрой мини-очищение: выброси одну ненужную мысль.',
+  'Поддержи себя так, как поддерживают в праздничные вечера.',
+  'Посмотри на свою жизнь глазами человека, который тебя любит.',
+  'Дай себе пространство, чтобы мечтать о следующем годе.',
+  'Обними свою сегодняшнюю версию — она достойна тепла.',
+  'Попроси у декабря то, чего хочешь — и будь готов(а) это принять.',
+  'Выбери сегодня одно маленькое удовольствие и сделай его обязательным.',
+  'Вспомни, чем ты гордишься в себе — и побудь с этим.',
+  'Найди место в дне, где можно вдохнуть свежий воздух.',
+  'Поддержи себя тёплыми словами, которые обычно говоришь другим.',
+  'Попроси у дня подсказку — и будь открытым к её получению.',
+  'Обними свою сегодняшнюю версию — в ней твоя точка опоры.',
 ];
 
-// Подбор иконки по тексту пожелания
+// --- ХЕЛПЕР: иконка по тексту ---
 const getThematicIllustration = (text) => {
   const props = { size: 48, strokeWidth: 1.5 };
-  const t = text.toLowerCase();
+  const lowerText = text.toLowerCase();
 
-  if (t.includes("чай") || t.includes("кофе") || t.includes("тепл"))
+  if (
+    lowerText.includes('кофе') ||
+    lowerText.includes('чай') ||
+    lowerText.includes('паузу') ||
+    lowerText.includes('отдых') ||
+    lowerText.includes('ничегонеделания') ||
+    lowerText.includes('напитка') ||
+    lowerText.includes('уют')
+  )
     return <Coffee {...props} color="#795548" />;
-  if (t.includes("свет") || t.includes("огоньки") || t.includes("огонь"))
+
+  if (
+    lowerText.includes('солнце') ||
+    lowerText.includes('свет') ||
+    lowerText.includes('тепла') ||
+    lowerText.includes('луч') ||
+    lowerText.includes('огоньки') ||
+    lowerText.includes('лампочку')
+  )
     return <Sun {...props} color="#F59E0B" />;
-  if (t.includes("люб") || t.includes("обним"))
+
+  if (
+    lowerText.includes('сердце') ||
+    lowerText.includes('любовь') ||
+    lowerText.includes('обними') ||
+    lowerText.includes('себя') ||
+    lowerText.includes('любишь') ||
+    lowerText.includes('словами')
+  )
     return <Heart {...props} color="#c82926" />;
-  if (t.includes("снег") || t.includes("тишин") || t.includes("декабр"))
+
+  if (
+    lowerText.includes('снежинк') ||
+    lowerText.includes('небо') ||
+    lowerText.includes('тишин') ||
+    lowerText.includes('атмосферу') ||
+    lowerText.includes('снег') ||
+    lowerText.includes('декабрь')
+  )
     return <CloudSun {...props} color="#706c91" />;
-  if (t.includes("мечт") || t.includes("вдохнов"))
+
+  if (
+    lowerText.includes('творчеств') ||
+    lowerText.includes('вдохнов') ||
+    lowerText.includes('мысли') ||
+    lowerText.includes('хаос') ||
+    lowerText.includes('мечтать')
+  )
     return <Feather {...props} color="#c82926" />;
-  if (t.includes("улыб"))
+
+  if (
+    lowerText.includes('ошибк') ||
+    lowerText.includes('пазл') ||
+    lowerText.includes('решение') ||
+    lowerText.includes('очищение')
+  )
+    return <Puzzle {...props} color="#706c91" />;
+
+  if (lowerText.includes('кот') || lowerText.includes('животное'))
+    return <Cat {...props} color="#363636" />;
+
+  if (
+    lowerText.includes('нет') ||
+    lowerText.includes('границы') ||
+    lowerText.includes('защит') ||
+    lowerText.includes('опоры')
+  )
+    return <Shield {...props} color="#363636" />;
+
+  if (
+    lowerText.includes('покупк') ||
+    lowerText.includes('магазин')
+  )
+    return <ShoppingBag {...props} color="#c82926" />;
+
+  if (
+    lowerText.includes('энерги') ||
+    lowerText.includes('заряд') ||
+    lowerText.includes('сил')
+  )
+    return <BatteryCharging {...props} color="#706c91" />;
+
+  if (
+    lowerText.includes('улыб') ||
+    lowerText.includes('смех') ||
+    lowerText.includes('радость') ||
+    lowerText.includes('хорошо') ||
+    lowerText.includes('счастливым') ||
+    lowerText.includes('удовольствие')
+  )
     return <Smile {...props} color="#F59E0B" />;
-  if (t.includes("книг"))
+
+  if (
+    lowerText.includes('дыши') ||
+    lowerText.includes('ветер') ||
+    lowerText.includes('воздух') ||
+    lowerText.includes('выдохни')
+  )
+    return <Wind {...props} color="#706c91" />;
+
+  if (
+    lowerText.includes('время') ||
+    lowerText.includes('минут') ||
+    lowerText.includes('часы') ||
+    lowerText.includes('темп') ||
+    lowerText.includes('замедлиться')
+  )
+    return <Clock {...props} color="#363636" />;
+
+  if (
+    lowerText.includes('книг') ||
+    lowerText.includes('чита') ||
+    lowerText.includes('автор') ||
+    lowerText.includes('глава') ||
+    lowerText.includes('истори')
+  )
     return <BookOpen {...props} color="#795548" />;
-  if (t.includes("шаг"))
+
+  if (
+    lowerText.includes('шаг') ||
+    lowerText.includes('вперед') ||
+    lowerText.includes('старт') ||
+    lowerText.includes('действи') ||
+    lowerText.includes('начала')
+  )
     return <Rocket {...props} color="#c82926" />;
-  if (t.includes("празд"))
+
+  if (
+    lowerText.includes('компас') ||
+    lowerText.includes('путь') ||
+    lowerText.includes('направлени') ||
+    lowerText.includes('контроль') ||
+    lowerText.includes('подсказку')
+  )
+    return <Compass {...props} color="#c82926" />;
+
+  if (
+    lowerText.includes('чудо') ||
+    lowerText.includes('маги') ||
+    lowerText.includes('искренне') ||
+    lowerText.includes('огоньком') ||
+    lowerText.includes('волшебство')
+  )
+    return <Sparkles {...props} color="#F59E0B" />;
+
+  if (
+    lowerText.includes('важен') ||
+    lowerText.includes('король') ||
+    lowerText.includes('достижение') ||
+    lowerText.includes('похвал') ||
+    lowerText.includes('лидерство') ||
+    lowerText.includes('побед') ||
+    lowerText.includes('гордишься')
+  )
+    return <Crown {...props} color="#F59E0B" />;
+
+  if (
+    lowerText.includes('праздник') ||
+    lowerText.includes('вечерин') ||
+    lowerText.includes('ритуал') ||
+    lowerText.includes('ёлку') ||
+    lowerText.includes('новый год')
+  )
     return <PartyPopper {...props} color="#c82926" />;
-  if (t.includes("коллег") || t.includes("друг"))
+
+  if (
+    lowerText.includes('друг') ||
+    lowerText.includes('коллег') ||
+    lowerText.includes('люд') ||
+    lowerText.includes('знакомств')
+  )
     return <Users {...props} color="#706c91" />;
+
+  if (
+    lowerText.includes('музык') ||
+    lowerText.includes('песн') ||
+    lowerText.includes('слушай')
+  )
+    return <Music {...props} color="#c82926" />;
+
+  if (
+    lowerText.includes('свеч') ||
+    lowerText.includes('огонь')
+  )
+    return <Sun {...props} color="#F59E0B" />;
 
   return <Gift {...props} color="#c82926" />;
 };
 
 export default function AdventCalendar() {
   const [user, setUser] = useState(null);
+  const [isUserReady, setIsUserReady] = useState(false);
+
   const [openedDays, setOpenedDays] = useState({});
   const [modalData, setModalData] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
-  // currentDate:
-  // -1 = доступен только 29.11
-  //  0 = 29–30.11
-  //  1..31 = дни декабря
-  const [currentDate, setCurrentDate] = useState(-1);
+  const [currentDate, setCurrentDate] = useState(1); // для dev-панели
+  const [isDevMode, setIsDevMode] = useState(true);
 
-  // Авторизация (анонимно)
+  // Напоминания
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState('09:00');
+  const [reminderLoading, setReminderLoading] = useState(false);
+
+  // Telegram WebApp init
   useEffect(() => {
-    const run = async () => {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      setTimeout(() => {
+        try {
+          tg.ready();
+          tg.expand();
+        } catch (e) {
+          console.log('Telegram init error:', e);
+        }
+      }, 50);
+    }
+  }, []);
+
+  // Авторизация
+  useEffect(() => {
+    const initAuth = async () => {
       try {
         await signInAnonymously(auth);
       } catch (e) {
-        console.error("Auth error:", e);
+        console.error('Auth error:', e);
       }
     };
-    run();
-    return onAuthStateChanged(auth, (u) => setUser(u));
+
+    initAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setIsUserReady(true);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Определяем текущий доступный день по системной дате
-  useEffect(() => {
-    const now = new Date();
-    const month = now.getMonth(); // 0-янв, 10-ноя, 11-дек
-    const day = now.getDate();
-
-    let value = -1;
-
-    if (month === 10) {
-      // Ноябрь
-      if (day >= 30) value = 0;       // 29 и 30 ноября
-      else if (day >= 29) value = -1; // только 29
-    } else if (month === 11) {
-      // Декабрь
-      value = Math.min(day, 31);
-    }
-
-    setCurrentDate(value);
-  }, []);
-
-  // Подписка на прогресс пользователя
+  // Загрузка прогресса
   useEffect(() => {
     if (!user) return;
 
-    const ref = collection(
+    const progressRef = collection(
       db,
-      "artifacts",
-      APP_ID,
-      "users",
+      'artifacts',
+      appId,
+      'users',
       user.uid,
-      "advent_progress"
+      'advent_progress'
     );
 
-    return onSnapshot(ref, (snapshot) => {
-      const data = {};
-      snapshot.forEach((d) => {
-        data[d.id] = d.data().message;
-      });
-      setOpenedDays(data);
-    });
+    const unsubscribe = onSnapshot(
+      progressRef,
+      (snapshot) => {
+        const data = {};
+        snapshot.docs.forEach((docSnap) => {
+          data[docSnap.id] = docSnap.data().message;
+        });
+        setOpenedDays(data);
+      },
+      (error) => console.error('Error fetching progress:', error)
+    );
+
+    return () => unsubscribe();
   }, [user]);
 
-  // Автоматическое скрытие тоста
+  // Авто-убираем тост
   useEffect(() => {
     if (!toastMessage) return;
-    const t = setTimeout(() => setToastMessage(null), 2200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setToastMessage(null), 2000);
+    return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  const days = [-1, 0, ...Array.from({ length: 31 }, (_, i) => i + 1)];
-  const label = (d) => (d === -1 ? "29.11" : d === 0 ? "30.11" : d);
+  // Загрузка настроек напоминаний по Telegram user.id
+  useEffect(() => {
+    const loadReminders = async () => {
+      try {
+        const tg = window.Telegram?.WebApp;
+        const telegramUserId = tg?.initDataUnsafe?.user?.id;
+        if (!telegramUserId) return;
 
-  const handleDayClick = async (day) => {
-    if (!user) return;
+        setReminderLoading(true);
+        const ref = doc(db, 'reminders', String(telegramUserId));
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data();
+          setReminderEnabled(!!data.enabled);
+          if (data.time) setReminderTime(data.time);
+        }
+      } catch (e) {
+        console.log('Reminder load error:', e);
+      } finally {
+        setReminderLoading(false);
+      }
+    };
 
-    const isFuture = day > currentDate;
+    loadReminders();
+  }, []);
 
-    // Клик по будущему дню -> тост
-    if (isFuture) {
-      setToastMessage("Этот день ещё не наступил");
+  const handleDayClick = async (dayNumber) => {
+    if (!user || !isUserReady) return;
+
+    if (dayNumber > currentDate) {
+      setToastMessage('Этот день ещё не настал');
       return;
     }
 
-    // Уже открыт — просто показываем модалку
-    if (openedDays[day]) {
-      setModalData({ day, text: openedDays[day] });
+    if (openedDays[dayNumber]) {
+      setModalData({
+        day: dayNumber,
+        text: openedDays[dayNumber],
+        isNew: false,
+      });
       return;
     }
+
+    const receivedWishes = Object.values(openedDays);
+    const availableWishes = WISHES_POOL.filter(
+      (w) => !receivedWishes.includes(w)
+    );
+    const pool = availableWishes.length > 0 ? availableWishes : WISHES_POOL;
+    const randomWish =
+      pool[Math.floor(Math.random() * pool.length)];
 
     try {
-      const used = Object.values(openedDays);
-      const available = WISHES_POOL.filter((w) => !used.includes(w));
-      const pool = available.length ? available : WISHES_POOL;
-      const wish = pool[Math.floor(Math.random() * pool.length)];
-
-      const ref = doc(
+      const dayDocRef = doc(
         db,
-        "artifacts",
-        APP_ID,
-        "users",
+        'artifacts',
+        appId,
+        'users',
         user.uid,
-        "advent_progress",
-        String(day)
+        'advent_progress',
+        String(dayNumber)
       );
-
-      await setDoc(ref, {
-        day,
-        message: wish,
-        openedAt: serverTimestamp()
+      await setDoc(dayDocRef, {
+        day: dayNumber,
+        message: randomWish,
+        openedAt: serverTimestamp(),
       });
-
-      setModalData({ day, text: wish });
+      setModalData({
+        day: dayNumber,
+        text: randomWish,
+        isNew: true,
+      });
     } catch (e) {
-      console.error("Firestore write error:", e);
-      setToastMessage("Не удалось сохранить, проверь Firestore rules");
+      console.error('Error saving wish:', e);
     }
   };
 
   const closeModal = () => setModalData(null);
 
+  // Сетка дней
+  const daysGrid = useMemo(
+    () => [-1, 0, ...Array.from({ length: 31 }, (_, i) => i + 1)],
+    []
+  );
+
+  const getDevDateLabel = (val) =>
+    val <= 0 ? `${30 + val} ноября` : `${val} декабря`;
+
+  const getDevStatusLabel = (val) =>
+    val <= -1
+      ? '🔓 Доступно: 29.11'
+      : val <= 0
+      ? '🔓 Доступно: 30.11'
+      : `🔓 Доступно до: ${val} дек`;
+
+  const getCardLabel = (day) => {
+    if (day === -1) return '29.11';
+    if (day === 0) return '30.11';
+    return day;
+  };
+
+  const getModalTitle = (day) => {
+    if (day === -1) return '29 ноября';
+    if (day === 0) return '30 ноября';
+    return `День ${day}`;
+  };
+
+  // Сохранение настроек напоминаний
+  const saveReminderSettings = async () => {
+    try {
+      const tg = window.Telegram?.WebApp;
+      const telegramUserId = tg?.initDataUnsafe?.user?.id;
+
+      if (!telegramUserId) {
+        setToastMessage(
+          'Напоминания работают при открытии через Telegram'
+        );
+        return;
+      }
+
+      const ref = doc(db, 'reminders', String(telegramUserId));
+      await setDoc(
+        ref,
+        {
+          chatId: telegramUserId,
+          enabled: reminderEnabled,
+          time: reminderTime,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setToastMessage('Настройки напоминаний сохранены');
+    } catch (e) {
+      console.error('Reminder save error:', e);
+      setToastMessage('Не удалось сохранить напоминания');
+    }
+  };
+
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: COLORS.dawnPink,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "24px 12px",
-        boxSizing: "border-box"
-      }}
+      className="min-h-screen w-full flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-200"
+      style={{ backgroundColor: COLORS.dawnPink, color: COLORS.tuatara }}
     >
-      {/* Шапка */}
-      <h1
-        style={{
-          fontSize: 24,
-          fontWeight: 800,
-          color: COLORS.tuatara,
-          marginTop: 8,
-          textAlign: "center"
-        }}
-      >
-        Адвент-календарь команды LifePractic
-      </h1>
+      {/* ШАПКА */}
+      <header className="w-full max-w-md p-6 flex flex-col items-center text-center mt-4">
+        <div className="mb-4">
+          <div className="bg-white p-2 rounded-xl shadow-sm border border-stone-200">
+            <span className="text-sm font-bold tracking-widest text-[#363636]">
+              LIFEPRACTIC
+            </span>
+          </div>
+        </div>
 
-      {/* Сетка */}
-      <div
-        style={{
-          maxWidth: 480,
-          width: "100%",
-          marginTop: 24,
-          display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-          gap: 12
-        }}
-      >
-        {days.map((day) => {
-          const isFuture = day > currentDate;
-          const isOpened = !!openedDays[day];
-          const canOpen = !isFuture && !isOpened;
+        <h1 className="text-2xl font-bold leading-tight mb-2">
+          Адвент-календарь
+          <br />
+          команды LifePractic
+        </h1>
+        <p className="text-sm opacity-60 font-medium mb-1">
+          31 день маленьких радостей и пожеланий
+        </p>
+        {!isUserReady && (
+          <p className="mt-1 text-xs text-gray-500">
+            Загружаем ваш календарь…
+          </p>
+        )}
+      </header>
 
-          return (
-            <button
-              key={day}
-              onClick={() => handleDayClick(day)}
-              style={{
-                backgroundColor: isOpened
-                  ? COLORS.bone
-                  : isFuture
-                  ? COLORS.dawnPink
-                  : COLORS.white,
-                borderRadius: 18,
-                border: canOpen
-                  ? `2px solid ${COLORS.fireEngineRed}`
-                  : `1px solid ${COLORS.rodeoDust}`,
-                padding: 8,
-                aspectRatio: "4 / 5",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: isFuture ? "not-allowed" : "pointer",
-                opacity: isFuture ? 0.6 : 1,
-                boxShadow: canOpen
-                  ? "0 4px 12px rgba(200,41,38,0.15)"
-                  : "none"
-              }}
-            >
-              <span
+      {/* СЕТКА КАЛЕНДАРЯ */}
+      <main className="w-full max-w-md p-4 pb-6">
+        <div className="grid grid-cols-5 gap-3 sm:gap-4">
+          {daysGrid.map((day) => {
+            const isFuture = day > currentDate;
+            const isOpened = !!openedDays[day];
+            const isClickable = !isFuture && isUserReady;
+
+            const isFancyTree = day > 15;
+            const treeColor = isFancyTree
+              ? COLORS.fireEngineRed
+              : COLORS.forestGreen;
+
+            return (
+              <button
+                key={day}
+                type="button"
+                disabled={!isClickable}
+                onClick={() =>
+                  isClickable && handleDayClick(day)
+                }
+                className={`
+                  aspect-[4/5] rounded-[18px] flex flex-col items-center justify-center relative transition-all duration-300
+                  ${
+                    isClickable
+                      ? 'cursor-pointer hover:-translate-y-1 active:scale-95'
+                      : 'cursor-default'
+                  }
+                `}
                 style={{
-                  fontWeight: 600,
-                  fontSize: day <= 0 ? 10 : 16,
-                  color: isFuture ? COLORS.rodeoDust : COLORS.tuatara
+                  backgroundColor: isOpened
+                    ? COLORS.bone
+                    : isFuture
+                    ? COLORS.dawnPink
+                    : COLORS.white,
+                  border: isClickable
+                    ? `2px solid ${COLORS.fireEngineRed}`
+                    : isFuture
+                    ? '1px solid rgba(199, 184, 149, 0.3)'
+                    : 'none',
+                  boxShadow: isClickable
+                    ? '0 4px 12px rgba(200, 41, 38, 0.15)'
+                    : 'none',
+                  opacity: !isClickable && !isOpened ? 0.7 : 1,
                 }}
               >
-                {label(day)}
-              </span>
-
-              {/* Ёлка только если день открыт И уже наступил */}
-              {isOpened && !isFuture && (
-                <div
+                <span
+                  className={`font-semibold z-10 ${
+                    isFuture ? 'opacity-40' : ''
+                  } ${day <= 0 ? 'text-xs' : 'text-lg'}`}
                   style={{
-                    marginTop: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4
+                    color: isFuture
+                      ? COLORS.rodeoDust
+                      : COLORS.tuatara,
                   }}
                 >
-                  <TreePine size={16} color={COLORS.forestGreen} />
-                  <Sparkles size={12} color={COLORS.rodeoDust} />
-                </div>
-              )}
+                  {getCardLabel(day)}
+                </span>
 
-              {/* Замочек на будущем дне (визуально) */}
-              {isFuture && (
-                <div style={{ marginTop: 4 }}>
-                  <Lock size={14} color={COLORS.rodeoDust} />
+                <div className="mt-1">
+                  {isFuture && (
+                    <Lock
+                      size={14}
+                      color={COLORS.rodeoDust}
+                      className="opacity-60"
+                    />
+                  )}
+                  {isOpened && (
+                    <div className="flex items-center justify-center animate-pulse relative">
+                      <TreePine size={16} color={treeColor} />
+                      {isFancyTree && (
+                        <Sparkles
+                          size={10}
+                          color={COLORS.rodeoDust}
+                          className="absolute -top-1 -right-1"
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* БЛОК НАПОМИНАНИЙ */}
+        <div className="mt-6 w-full">
+          <div className="w-full bg-white/80 backdrop-blur p-4 rounded-xl border border-stone-200 shadow-sm">
+            <h3 className="text-lg font-semibold mb-2">
+              Напоминания
+            </h3>
+
+            <p className="text-xs text-gray-500 mb-3">
+              Можем мягко напоминать, что новый день в адвенте уже
+              наступил.
+            </p>
+
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm">
+                Напоминать каждый день
+              </span>
+              <input
+                type="checkbox"
+                checked={reminderEnabled}
+                disabled={reminderLoading}
+                onChange={() =>
+                  setReminderEnabled(!reminderEnabled)
+                }
+                className="h-5 w-5 accent-[#c82926]"
+              />
+            </div>
+
+            {reminderEnabled && (
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm">Время (по Мск)</span>
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) =>
+                    setReminderTime(e.target.value)
+                  }
+                  className="border px-2 py-1 rounded text-sm"
+                />
+              </div>
+            )}
+
+            <button
+              onClick={saveReminderSettings}
+              disabled={reminderLoading}
+              className="w-full py-2 rounded-lg bg-[#c82926] text-white font-medium active:scale-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {reminderLoading
+                ? 'Сохраняем...'
+                : 'Сохранить настройки'}
             </button>
-          );
-        })}
-      </div>
+          </div>
+        </div>
+      </main>
 
-      {/* ТОСТ "этот день ещё не наступил" */}
+      {/* ТОСТ */}
       {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            padding: "12px 18px",
-            borderRadius: 999,
-            backgroundColor: COLORS.tuatara,
-            color: "white",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 15,
-            fontWeight: 500,
-            zIndex: 9999,
-            boxShadow: "0 4px 14px rgba(0,0,0,0.25)"
-          }}
-        >
-          <Lock size={18} color={COLORS.rodeoDust} />
-          {toastMessage}
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in fade-in zoom-in duration-200">
+          <div className="bg-[#363636] text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+            <Lock size={16} className="text-[#e3dbca]" />
+            {toastMessage}
+          </div>
         </div>
       )}
 
-      {/* МОДАЛКА с пожеланием */}
+      {/* МОДАЛКА */}
       {modalData && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-            zIndex: 1000
-          }}
-          onClick={closeModal}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: COLORS.white,
-              borderRadius: 24,
-              padding: 24,
-              maxWidth: 400,
-              width: "100%",
-              textAlign: "center",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.25)"
-            }}
-          >
-            <div
-              style={{
-                marginBottom: 16,
-                backgroundColor: COLORS.dawnPink,
-                borderRadius: "999px",
-                width: 96,
-                height: 96,
-                marginInline: "auto",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+            onClick={closeModal}
+          ></div>
+
+          <div className="bg-white w-full max-w-sm rounded-[24px] p-8 relative shadow-2xl transform transition-all scale-100 flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
+            <div className="mb-6 bg-[#f1eae0] p-6 rounded-full inline-flex items-center justify-center shadow-inner">
               {getThematicIllustration(modalData.text)}
             </div>
 
-            <h2
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                marginBottom: 8,
-                color: COLORS.tuatara
-              }}
-            >
-              День {modalData.day}
-            </h2>
+            <h3 className="text-xl font-bold mb-2 text-[#363636]">
+              {getModalTitle(modalData.day)}
+            </h3>
 
-            <p
-              style={{
-                fontSize: 16,
-                lineHeight: 1.4,
-                marginBottom: 16,
-                color: COLORS.tuatara
-              }}
-            >
+            <div className="w-12 h-1 bg-[#c82926] rounded-full mb-6 opacity-20 mx-auto"></div>
+
+            <p className="text-lg leading-relaxed mb-8 text-[#363636]">
               «{modalData.text}»
             </p>
 
             <button
               onClick={closeModal}
-              style={{
-                backgroundColor: COLORS.fireEngineRed,
-                color: "white",
-                border: "none",
-                borderRadius: 14,
-                padding: "12px 16px",
-                fontWeight: 600,
-                cursor: "pointer",
-                width: "100%"
-              }}
+              className="w-full py-3.5 rounded-xl font-semibold text-white transition-transform active:scale-95 shadow-lg shadow-red-200"
+              style={{ backgroundColor: COLORS.fireEngineRed }}
             >
               Вернуться к календарю
             </button>
           </div>
         </div>
       )}
+
+      {/* DEV TOOLS */}
+      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 pointer-events-none">
+        {isDevMode && (
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-gray-200 p-4 rounded-2xl shadow-2xl w-64 mb-2 animate-in slide-in-from-bottom-5">
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="font-bold text-xs uppercase tracking-wider text-gray-500">
+                Симуляция времени
+              </h4>
+              <button
+                onClick={() => setIsDevMode(false)}
+                className="text-gray-400 hover:text-gray-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1 text-xs">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm font-bold text-[#c82926]">
+                    {getDevDateLabel(currentDate)}
+                  </span>
+                  <span className="text-[10px] text-gray-500">
+                    {currentDate <= 0
+                      ? 'Тестовые дни'
+                      : `День ${currentDate}`}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min="-1"
+                  max="31"
+                  step="1"
+                  value={currentDate}
+                  onChange={(e) =>
+                    setCurrentDate(Number(e.target.value))
+                  }
+                  className="w-full accent-[#c82926] cursor-pointer"
+                />
+
+                <div className="text-[10px] font-medium text-gray-600 bg-gray-50 p-1.5 rounded mt-1 border border-gray-100 text-center">
+                  {getDevStatusLabel(currentDate)}
+                </div>
+              </label>
+
+              <div className="h-px bg-gray-100 my-1"></div>
+
+              <div className="text-gray-400 text-[10px] break-all">
+                UID:{' '}
+                {user
+                  ? user.uid.slice(0, 8) + '...'
+                  : 'Loading...'}
+              </div>
+
+              <button
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                onClick={() => setOpenedDays({})}
+              >
+                Сбросить прогресс открытия
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isDevMode && (
+          <button
+            onClick={() => setIsDevMode(true)}
+            className="pointer-events-auto w-12 h-12 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:text-[#c82926] transition-colors hover:rotate-90 duration-300"
+          >
+            <Settings size={20} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
