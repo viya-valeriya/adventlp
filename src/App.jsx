@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Lock, Sparkles, X, Gift, TreePine,
-  // Импорт тематических иконок для пожеланий
   Coffee, CloudSun, Heart, Feather, Compass, Cat, Shield, 
   Smile, ShoppingBag, BatteryCharging, Wind, Clock, 
   BookOpen, Rocket, Moon, Crown, Users, Puzzle, PartyPopper,
@@ -24,7 +23,6 @@ import {
 } from 'firebase/firestore';
 
 // --- КОНФИГУРАЦИЯ FIREBASE ---
-// БЕЗ __firebase_config, просто прямой объект
 const firebaseConfig = {
   apiKey: "AIzaSyCOHeMkOIwG0ddkwh3zz4o5pyfR97jPS50",
   authDomain: "adventlp.firebaseapp.com",
@@ -38,18 +36,20 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const appId = typeof window !== 'undefined' && typeof window.__app_id !== 'undefined'
+  ? window.__app_id
+  : 'default-app-id';
 
-// --- ЦВЕТОВАЯ ПАЛИТРА И КОНСТАНТЫ ---
+// --- ЦВЕТОВАЯ ПАЛИТРА ---
 const COLORS = {
   white: '#ffffff',
-  dawnPink: '#f1eae0',     // Фон
-  tuatara: '#363636',      // Текст
-  fireEngineRed: '#c82926', // Акцент
-  kimberly: '#706c91',     // Акцент 2
-  rodeoDust: '#c7b895',    // Для заблокированных
-  bone: '#e3dbca',         // Для открытых
-  forestGreen: '#2f855a',  // Для елки
+  dawnPink: '#f1eae0',
+  tuatara: '#363636',
+  fireEngineRed: '#c82926',
+  kimberly: '#706c91',
+  rodeoDust: '#c7b895',
+  bone: '#e3dbca',
+  forestGreen: '#2f855a',
 };
 
 // --- СПИСОК ПОЖЕЛАНИЙ ---
@@ -150,7 +150,7 @@ const WISHES_POOL = [
   "Обними свою сегодняшнюю версию — в ней твоя точка опоры."
 ];
 
-// --- ХЕЛПЕР: ПОДБОР ИЛЛЮСТРАЦИИ ---
+// --- ИКОНКА ПО СМЫСЛУ ТЕКСТА ---
 const getThematicIllustration = (text) => {
   const props = { size: 48, strokeWidth: 1.5 };
   const lowerText = text.toLowerCase();
@@ -177,7 +177,6 @@ const getThematicIllustration = (text) => {
   if (lowerText.includes("друг") || lowerText.includes("коллег") || lowerText.includes("люд") || lowerText.includes("знакомств")) return <Users {...props} color="#706c91" />;
   if (lowerText.includes("музык") || lowerText.includes("песн") || lowerText.includes("слушай")) return <Music {...props} color="#c82926" />;
   if (lowerText.includes("свеч") || lowerText.includes("огонь")) return <Sun {...props} color="#F59E0B" />;
-  
   return <Gift {...props} color="#c82926" />;
 };
 
@@ -186,12 +185,12 @@ export default function AdventCalendar() {
   const [openedDays, setOpenedDays] = useState({});
   const [modalData, setModalData] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
-  
-  const [currentDate, setCurrentDate] = useState(1); 
+  const [currentDate, setCurrentDate] = useState(1);
 
+  // Определяем текущий день для блокировки будущего
   useEffect(() => {
     const now = new Date();
-    const month = now.getMonth(); // 0-11, где 11 = Декабрь
+    const month = now.getMonth(); // 0-11
     const day = now.getDate();
 
     if (month < 11) {
@@ -203,65 +202,111 @@ export default function AdventCalendar() {
     }
   }, []);
 
+  // Авторизация Firebase
   useEffect(() => {
     const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
+      const token =
+        typeof window !== 'undefined' && window.__initial_auth_token
+          ? window.__initial_auth_token
+          : null;
+
+      if (token) {
+        await signInWithCustomToken(auth, token);
       } else {
         await signInAnonymously(auth);
       }
     };
+
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
+  // Загрузка прогресса
   useEffect(() => {
     if (!user) return;
-    const progressRef = collection(db, 'artifacts', appId, 'users', user.uid, 'advent_progress');
-    const unsubscribe = onSnapshot(progressRef, (snapshot) => {
-      const data = {};
-      snapshot.docs.forEach(doc => {
-        data[doc.id] = doc.data().message;
-      });
-      setOpenedDays(data);
-    }, (error) => console.error("Error fetching progress:", error));
+    const progressRef = collection(
+      db,
+      'artifacts',
+      appId,
+      'users',
+      user.uid,
+      'advent_progress'
+    );
+    const unsubscribe = onSnapshot(
+      progressRef,
+      (snapshot) => {
+        const data = {};
+        snapshot.docs.forEach((docSnap) => {
+          data[docSnap.id] = docSnap.data().message;
+        });
+        setOpenedDays(data);
+      },
+      (error) => console.error('Error fetching progress:', error)
+    );
     return () => unsubscribe();
   }, [user]);
 
+  // Авто-скрытие тоста
   useEffect(() => {
     if (toastMessage) {
-      const timer = setTimeout(() => {
-        setToastMessage(null);
-      }, 2000);
+      const timer = setTimeout(() => setToastMessage(null), 2000);
       return () => clearTimeout(timer);
     }
   }, [toastMessage]);
+
+  // Блокировка скролла фона, когда открыта модалка
+  useEffect(() => {
+    if (!modalData) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [modalData]);
 
   const handleDayClick = async (dayNumber) => {
     if (!user) return;
 
     if (dayNumber > currentDate) {
-      setToastMessage("Этот день еще не настал");
-      return; 
+      setToastMessage('Этот день еще не настал');
+      return;
     }
 
     if (openedDays[dayNumber]) {
-      setModalData({ day: dayNumber, text: openedDays[dayNumber], isNew: false });
+      setModalData({
+        day: dayNumber,
+        text: openedDays[dayNumber],
+        isNew: false,
+      });
       return;
     }
 
     const receivedWishes = Object.values(openedDays);
-    const availableWishes = WISHES_POOL.filter(w => !receivedWishes.includes(w));
+    const availableWishes = WISHES_POOL.filter(
+      (w) => !receivedWishes.includes(w)
+    );
     const pool = availableWishes.length > 0 ? availableWishes : WISHES_POOL;
     const randomWish = pool[Math.floor(Math.random() * pool.length)];
 
     try {
-      const dayDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'advent_progress', String(dayNumber));
-      await setDoc(dayDocRef, { day: dayNumber, message: randomWish, openedAt: serverTimestamp() });
+      const dayDocRef = doc(
+        db,
+        'artifacts',
+        appId,
+        'users',
+        user.uid,
+        'advent_progress',
+        String(dayNumber)
+      );
+      await setDoc(dayDocRef, {
+        day: dayNumber,
+        message: randomWish,
+        openedAt: serverTimestamp(),
+      });
       setModalData({ day: dayNumber, text: randomWish, isNew: true });
     } catch (e) {
-      console.error("Error saving wish:", e);
+      console.error('Error saving wish:', e);
     }
   };
 
@@ -270,32 +315,97 @@ export default function AdventCalendar() {
   const daysGrid = Array.from({ length: 31 }, (_, i) => i + 1);
 
   return (
-    <div 
-      className="min-h-screen w-full flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-200"
-      style={{ backgroundColor: COLORS.dawnPink, color: COLORS.tuatara }}
+    <div
+      style={{
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        backgroundColor: COLORS.dawnPink,
+        color: COLORS.tuatara,
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+        boxSizing: 'border-box',
+        paddingBottom: '32px',
+      }}
     >
-      <header className="w-full max-w-md p-6 flex flex-col items-center text-center mt-4">
-        <div className="mb-4">
-            <div className="bg-white p-2 rounded-xl shadow-sm border border-stone-200">
-             <span className="text-sm font-bold tracking-widest text-[#363636]">LIFEPRACTIC</span>
-            </div>
+      {/* Шапка */}
+      <header
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          padding: 24,
+          paddingTop: 32,
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              display: 'inline-block',
+              backgroundColor: '#ffffff',
+              padding: 8,
+              borderRadius: 12,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+              border: '1px solid #e5e5e5',
+            }}
+          >
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: '0.18em',
+                color: '#363636',
+              }}
+            >
+              LIFEPRACTIC
+            </span>
+          </div>
         </div>
-        
-        <h1 className="text-2xl font-bold leading-tight mb-2">
-          Адвент-календарь<br/>команды LifePractic
+        <h1
+          style={{
+            fontSize: 24,
+            fontWeight: 700,
+            lineHeight: 1.2,
+            marginBottom: 8,
+          }}
+        >
+          Адвент-календарь
+          <br />
+          команды LifePractic
         </h1>
-        <p className="text-sm opacity-60 font-medium">
+        <p
+          style={{
+            fontSize: 13,
+            opacity: 0.7,
+            fontWeight: 500,
+          }}
+        >
           31 день маленьких радостей и пожеланий
         </p>
       </header>
 
-      <main className="w-full max-w-md p-4 pb-20">
-        <div className="grid grid-cols-5 gap-3 sm:gap-4">
+      {/* Сетка календаря */}
+      <main
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          padding: 16,
+          paddingBottom: 40,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+            gap: 12,
+          }}
+        >
           {daysGrid.map((day) => {
             const isFuture = day > currentDate;
             const isOpened = !!openedDays[day];
             const isAvailable = !isFuture && !isOpened;
-            
             const isFancyTree = day > 15;
             const treeColor = isFancyTree ? COLORS.fireEngineRed : COLORS.forestGreen;
 
@@ -303,33 +413,73 @@ export default function AdventCalendar() {
               <button
                 key={day}
                 onClick={() => handleDayClick(day)}
-                className={`
-                  aspect-[4/5] rounded-[18px] flex flex-col items-center justify-center relative transition-all duration-300
-                  ${isFuture ? 'cursor-not-allowed active:scale-95' : 'cursor-pointer hover:-translate-y-1 active:scale-95'}
-                `}
+                disabled={false}
                 style={{
-                  backgroundColor: isOpened ? COLORS.bone : (isFuture ? COLORS.dawnPink : COLORS.white),
-                  border: isAvailable ? `2px solid ${COLORS.fireEngineRed}` : (isFuture ? `1px solid rgba(199, 184, 149, 0.3)` : 'none'),
-                  boxShadow: isAvailable ? '0 4px 12px rgba(200, 41, 38, 0.15)' : 'none',
-                  opacity: isFuture ? 0.8 : 1
+                  aspectRatio: '4 / 5',
+                  borderRadius: 18,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
+                  cursor: isFuture ? 'not-allowed' : 'pointer',
+                  backgroundColor: isOpened
+                    ? COLORS.bone
+                    : isFuture
+                    ? COLORS.dawnPink
+                    : COLORS.white,
+                  border: isAvailable
+                    ? `2px solid ${COLORS.fireEngineRed}`
+                    : isFuture
+                    ? '1px solid rgba(199, 184, 149, 0.6)'
+                    : '1px solid transparent',
+                  boxShadow: isAvailable
+                    ? '0 4px 12px rgba(200, 41, 38, 0.15)'
+                    : 'none',
+                  opacity: isFuture ? 0.8 : 1,
                 }}
               >
-                <span 
-                  className={`font-semibold z-10 text-lg ${isFuture ? 'opacity-40' : ''}`}
-                  style={{ color: isFuture ? COLORS.rodeoDust : COLORS.tuatara }}
+                <span
+                  style={{
+                    fontWeight: 600,
+                    zIndex: 1,
+                    fontSize: 16,
+                    color: isFuture ? COLORS.rodeoDust : COLORS.tuatara,
+                    opacity: isFuture ? 0.6 : 1,
+                  }}
                 >
                   {day}
                 </span>
 
-                <div className="mt-1">
+                <div style={{ marginTop: 4 }}>
                   {isFuture && (
-                    <Lock size={14} color={COLORS.rodeoDust} className="opacity-60" />
+                    <Lock
+                      size={14}
+                      color={COLORS.rodeoDust}
+                      style={{ opacity: 0.7 }}
+                    />
                   )}
                   {isOpened && (
-                    <div className="flex items-center justify-center animate-pulse relative">
+                    <div
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
                       <TreePine size={16} color={treeColor} />
                       {isFancyTree && (
-                        <Sparkles size={10} color={COLORS.rodeoDust} className="absolute -top-1 -right-1" />
+                        <Sparkles
+                          size={10}
+                          color={COLORS.rodeoDust}
+                          style={{
+                            position: 'absolute',
+                            top: -4,
+                            right: -4,
+                          }}
+                        />
                       )}
                     </div>
                   )}
@@ -340,57 +490,153 @@ export default function AdventCalendar() {
         </div>
       </main>
 
+      {/* ТОСТ */}
       {toastMessage && (
-        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in fade-in zoom-in duration-200">
-           <div className="bg-[#363636] text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-             <Lock size={16} className="text-[#e3dbca]" />
-             {toastMessage}
-           </div>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              pointerEvents: 'auto',
+              backgroundColor: '#363636',
+              color: '#ffffff',
+              padding: '8px 16px',
+              borderRadius: 999,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+              fontSize: 13,
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Lock size={16} color="#e3dbca" />
+            {toastMessage}
+          </div>
         </div>
       )}
 
+      {/* МОДАЛЬНОЕ ОКНО */}
       {modalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
-            onClick={closeModal}
-          ></div>
-          
-          <div 
-            className="bg:white w-full max-w-sm rounded-[24px] p-8 relative shadow-2xl transform transition-all scale-100 flex flex-col items-center text-center animate-in fade-in zoom-in duration-300"
+        <div
+          onClick={closeModal}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16,
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 24,
+              padding: 24,
+              width: '100%',
+              maxWidth: 420,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              position: 'relative',
+              textAlign: 'center',
+            }}
           >
             <button
               onClick={closeModal}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-black/5 hover:bg-black/10"
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                border: 'none',
+                background: 'rgba(0,0,0,0.04)',
+                borderRadius: 999,
+                padding: 4,
+                cursor: 'pointer',
+              }}
             >
-              <X size={18} className="text-[#363636]" />
+              <X size={18} color={COLORS.tuatara} />
             </button>
 
-            <div className="mb-6 bg-[#f1eae0] p-6 rounded-full inline-flex items-center justify-center shadow-inner">
-                {getThematicIllustration(modalData.text)}
+            <div
+              style={{
+                marginBottom: 20,
+                backgroundColor: COLORS.dawnPink,
+                padding: 16,
+                borderRadius: '999px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'inset 0 0 8px rgba(0,0,0,0.04)',
+              }}
+            >
+              {getThematicIllustration(modalData.text)}
             </div>
 
-            <h3 className="text-xl font-bold mb-2 text-[#363636]">
+            <h3
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                marginBottom: 8,
+                color: COLORS.tuatara,
+              }}
+            >
               День {modalData.day}
             </h3>
-            
-            <div className="w-12 h-1 bg-[#c82926] rounded-full mb-6 opacity-20 mx-auto"></div>
 
-            <p className="text-lg leading-relaxed mb-8 text-[#363636]">
+            <div
+              style={{
+                width: 48,
+                height: 4,
+                borderRadius: 999,
+                backgroundColor: 'rgba(200,41,38,0.2)',
+                margin: '0 auto 20px',
+              }}
+            />
+
+            <p
+              style={{
+                fontSize: 16,
+                lineHeight: 1.5,
+                marginBottom: 24,
+                color: COLORS.tuatara,
+              }}
+            >
               «{modalData.text}»
             </p>
 
             <button
               onClick={closeModal}
-              className="w-full py-3.5 rounded-xl font-semibold text:white transition-transform active:scale-95 shadow-lg shadow-red-200"
-              style={{ backgroundColor: COLORS.fireEngineRed }}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: 12,
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 15,
+                color: '#ffffff',
+                backgroundColor: COLORS.fireEngineRed,
+                cursor: 'pointer',
+                boxShadow: '0 8px 18px rgba(200,41,38,0.3)',
+              }}
             >
               Вернуться к календарю
             </button>
           </div>
         </div>
       )}
-
     </div>
   );
 }
