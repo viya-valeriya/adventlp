@@ -24,7 +24,17 @@ import {
 } from 'firebase/firestore';
 
 // --- КОНФИГУРАЦИЯ FIREBASE ---
-const firebaseConfig = JSON.parse(__firebase_config);
+// БЕЗ __firebase_config, просто прямой объект
+const firebaseConfig = {
+  apiKey: "AIzaSyCOHeMkOIwG0ddkwh3zz4o5pyfR97jPS50",
+  authDomain: "adventlp.firebaseapp.com",
+  projectId: "adventlp",
+  storageBucket: "adventlp.firebasestorage.app",
+  messagingSenderId: "1025160764098",
+  appId: "1:1025160764098:web:35d99c13486ece5753f95b",
+  measurementId: "G-SNGM8LTHJX"
+};
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -141,7 +151,6 @@ const WISHES_POOL = [
 ];
 
 // --- ХЕЛПЕР: ПОДБОР ИЛЛЮСТРАЦИИ ---
-// Функция ищет ключевые слова в тексте и возвращает компонент иконки
 const getThematicIllustration = (text) => {
   const props = { size: 48, strokeWidth: 1.5 };
   const lowerText = text.toLowerCase();
@@ -169,7 +178,6 @@ const getThematicIllustration = (text) => {
   if (lowerText.includes("музык") || lowerText.includes("песн") || lowerText.includes("слушай")) return <Music {...props} color="#c82926" />;
   if (lowerText.includes("свеч") || lowerText.includes("огонь")) return <Sun {...props} color="#F59E0B" />;
   
-  // Дефолтная иконка - Подарок
   return <Gift {...props} color="#c82926" />;
 };
 
@@ -179,29 +187,22 @@ export default function AdventCalendar() {
   const [modalData, setModalData] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   
-  // Текущая дата определяется автоматически
   const [currentDate, setCurrentDate] = useState(1); 
 
-  // Инициализация даты при запуске
   useEffect(() => {
     const now = new Date();
     const month = now.getMonth(); // 0-11, где 11 = Декабрь
     const day = now.getDate();
 
     if (month < 11) {
-      // Если еще не декабрь (январь-ноябрь текущего года) - календарь закрыт
       setCurrentDate(0);
     } else if (month === 11) {
-      // Если декабрь - ставим реальный день
       setCurrentDate(day);
     } else {
-      // Если год сменился (январь следующего) - можно открыть всё (31) или закрыть. 
-      // Обычно адвент остается открытым после НГ.
       setCurrentDate(31);
     }
   }, []);
 
-  // 1. Авторизация
   useEffect(() => {
     const initAuth = async () => {
       if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -215,7 +216,6 @@ export default function AdventCalendar() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Загрузка данных
   useEffect(() => {
     if (!user) return;
     const progressRef = collection(db, 'artifacts', appId, 'users', user.uid, 'advent_progress');
@@ -229,7 +229,6 @@ export default function AdventCalendar() {
     return () => unsubscribe();
   }, [user]);
 
-  // Управление исчезновением тоста
   useEffect(() => {
     if (toastMessage) {
       const timer = setTimeout(() => {
@@ -239,23 +238,19 @@ export default function AdventCalendar() {
     }
   }, [toastMessage]);
 
-  // Логика клика
   const handleDayClick = async (dayNumber) => {
     if (!user) return;
 
-    // 1. Будущее (Заблокировано) - ПОКАЗЫВАЕМ ТОСТ
     if (dayNumber > currentDate) {
       setToastMessage("Этот день еще не настал");
       return; 
     }
 
-    // 2. Уже открыто
     if (openedDays[dayNumber]) {
       setModalData({ day: dayNumber, text: openedDays[dayNumber], isNew: false });
       return;
     }
 
-    // 3. Открываем новое
     const receivedWishes = Object.values(openedDays);
     const availableWishes = WISHES_POOL.filter(w => !receivedWishes.includes(w));
     const pool = availableWishes.length > 0 ? availableWishes : WISHES_POOL;
@@ -272,7 +267,6 @@ export default function AdventCalendar() {
 
   const closeModal = () => setModalData(null);
 
-  // Стандартная сетка 1-31
   const daysGrid = Array.from({ length: 31 }, (_, i) => i + 1);
 
   return (
@@ -280,8 +274,6 @@ export default function AdventCalendar() {
       className="min-h-screen w-full flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-200"
       style={{ backgroundColor: COLORS.dawnPink, color: COLORS.tuatara }}
     >
-      
-      {/* --- ШАПКА --- */}
       <header className="w-full max-w-md p-6 flex flex-col items-center text-center mt-4">
         <div className="mb-4">
             <div className="bg-white p-2 rounded-xl shadow-sm border border-stone-200">
@@ -297,7 +289,6 @@ export default function AdventCalendar() {
         </p>
       </header>
 
-      {/* --- СЕТКА КАЛЕНДАРЯ --- */}
       <main className="w-full max-w-md p-4 pb-20">
         <div className="grid grid-cols-5 gap-3 sm:gap-4">
           {daysGrid.map((day) => {
@@ -349,7 +340,6 @@ export default function AdventCalendar() {
         </div>
       </main>
 
-      {/* --- ТОСТ / УВЕДОМЛЕНИЕ --- */}
       {toastMessage && (
         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in fade-in zoom-in duration-200">
            <div className="bg-[#363636] text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2 text-sm font-medium whitespace-nowrap">
@@ -359,7 +349,6 @@ export default function AdventCalendar() {
         </div>
       )}
 
-      {/* --- МОДАЛЬНОЕ ОКНО --- */}
       {modalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div 
@@ -368,9 +357,15 @@ export default function AdventCalendar() {
           ></div>
           
           <div 
-            className="bg-white w-full max-w-sm rounded-[24px] p-8 relative shadow-2xl transform transition-all scale-100 flex flex-col items-center text-center animate-in fade-in zoom-in duration-300"
+            className="bg:white w-full max-w-sm rounded-[24px] p-8 relative shadow-2xl transform transition-all scale-100 flex flex-col items-center text-center animate-in fade-in zoom-in duration-300"
           >
-            {/* Динамическая иконка/иллюстрация на основе текста */}
+            <button
+              onClick={closeModal}
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-black/5 hover:bg-black/10"
+            >
+              <X size={18} className="text-[#363636]" />
+            </button>
+
             <div className="mb-6 bg-[#f1eae0] p-6 rounded-full inline-flex items-center justify-center shadow-inner">
                 {getThematicIllustration(modalData.text)}
             </div>
@@ -387,7 +382,7 @@ export default function AdventCalendar() {
 
             <button
               onClick={closeModal}
-              className="w-full py-3.5 rounded-xl font-semibold text-white transition-transform active:scale-95 shadow-lg shadow-red-200"
+              className="w-full py-3.5 rounded-xl font-semibold text:white transition-transform active:scale-95 shadow-lg shadow-red-200"
               style={{ backgroundColor: COLORS.fireEngineRed }}
             >
               Вернуться к календарю
