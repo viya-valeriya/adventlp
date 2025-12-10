@@ -24,6 +24,6 @@ jobs:
         run: npm ci
 
       - name: Send Telegram reminder
-        run: node scripts/send-reminders.js
+        run: node scripts/send-reminders.cjs
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
