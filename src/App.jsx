@@ -1,613 +1,401 @@
-// src/App.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  Lock,
-  Sparkles,
-  Gift,
-  TreePine,
-  Coffee,
-  CloudSun,
-  Heart,
-  Feather,
-  Compass,
-  Cat,
-  Shield,
-  Smile,
-  ShoppingBag,
-  BatteryCharging,
-  Wind,
-  Clock,
-  BookOpen,
-  Rocket,
-  Moon,
-  Crown,
-  Users,
-  Puzzle,
-  PartyPopper,
-  Music,
-  Sun,
-  Anchor,
-  Eye,
-  X,
-} from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { 
+  Lock, Sparkles, X, Gift, TreePine,
+  // Импорт тематических иконок для пожеланий
+  Coffee, CloudSun, Heart, Feather, Compass, Cat, Shield, 
+  Smile, ShoppingBag, BatteryCharging, Wind, Clock, 
+  BookOpen, Rocket, Moon, Crown, Users, Puzzle, PartyPopper,
+  Music, Sun
+} from 'lucide-react'; 
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  onAuthStateChanged,
+  signInWithCustomToken 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  serverTimestamp 
+} from 'firebase/firestore';
 
-import { initializeApp, getApps } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-} from "firebase/firestore";
-
-// ----------------------
-// Firebase
-// ----------------------
+// --- КОНФИГУРАЦИЯ FIREBASE ---
 const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-let firebaseApp;
-let db;
-
-function initFirebase() {
-  if (!getApps().length) {
-    firebaseApp = initializeApp(firebaseConfig);
-  } else {
-    firebaseApp = getApps()[0];
-  }
-  db = getFirestore(firebaseApp);
-}
-
-initFirebase();
-
-// ----------------------
-// Данные по дням
-// ----------------------
-const baseWishes = {
-  1: "Заметь сегодня хоть один момент, когда мир вокруг кажется чуть-чуть добрее, чем обычно.",
-  2: "Сделай маленькую паузу в делах и просто посмотри в окно. Подумай, за что ты благодарна себе в этом году.",
-  3: "Найди сегодня способ порадовать себя чем-то простым: любимый напиток, музыка, пять минут тишины.",
-  4: "Скажи вслух одно тёплое слово себе — так, как ты бы сказала его близкому человеку.",
-  5: "Отметь сегодня, что у тебя уже получается хорошо — в работе, жизни, отношениях, не важно в чём.",
-  6: "Сделай шаг навстречу отдыху: ляг на пару минут, закрой глаза и просто глубоко подыши.",
-  7: "Заметь, в какой момент дня тебе особенно хотелось бы поддержки — и мысленно обними себя в этот момент.",
-  8: "Поделись чем-то тёплым с коллегой: словом, стикером, реакцией — чем-то маленьким, но живым.",
-  9: "Сделай сегодня одно действие в свою пользу, которое обычно откладываешь “на потом”.",
-  10: "Поддержи себя тёплыми словами, которые обычно говоришь другим.",
-  11: "Найди в сегодняшнем дне хотя бы одну деталь, которая напоминает тебе о празднике.",
-  12: "Сделай себе вечер “чуть-чуть уютнее”, чем обычно: свет, плед, чашка чего-то вкусного — что-то одно.",
-  13: "Вспомни человека, который поддерживал тебя в этом году, и мысленно скажи ему “спасибо”.",
-  14: "Разреши себе сегодня сделать что-то неидеально — и не ругать себя за это.",
-  15: "Заметив напряжение в теле, попробуй мягко его отпустить: потянись, пошевелись, глубоко вдохни.",
-  16: "Выбери одно маленькое дело, которое давно ждёт своей очереди, и сделай его без перфекционизма.",
-  17: "Найди что-то, что вызывает у тебя улыбку — и позволь себе немного задержаться в этом состоянии.",
-  18: "Сделай паузу среди дня и спроси себя: “А как я сейчас?” — без анализа и оценок, просто чтобы услышать.",
-  19: "Поддержи кого-то из команды тёплым словом или реакцией — как поддержали бы тебя.",
-  20: "Выбери сегодня один момент, когда ты выберешь себя — свой комфорт, темп, границы.",
-  21: "Заметь, сколько всего ты уже держишь и ведёшь. Признай это как факт, без “могла бы лучше”.",
-  22: "Найди сегодня маленькую радость: красивый свет, звук, запах, взгляд — и дозволь себе ей насладиться.",
-  23: "Сделай сегодня чуть более мягкий переход между делами: не из “надо”, а с заботой о себе.",
-  24: "Представь, что этот декабрь — про твою поддержку, а не только про задачи. Что бы ты добавила в день исходя из этого?",
-  25: "Вспомни момент этого года, когда ты собой гордилась. Побудь с этим ощущением чуть дольше.",
-  26: "Разреши себе не успеть всё. Выбери главное, остальное — можно отложить.",
-  27: "Сделай что-то, что возвращает тебе ощущение жизни: музыка, прогулка, сообщение другу, три минуты тишины.",
-  28: "Поддержи себя так, как ты поддержала бы вымотанного, но важного для тебя человека.",
-  29: "Наметь один маленький, реалистичный и живой намеренный шаг на следующий год, без глобальных планов.",
-  30: "Устрой внутренний аплодисмент себе за этот год — даже если кажется, что “мало сделала”.",
-  31: "Сохрани в памяти что-то тёплое из этого декабря — для себя будущей.",
+// --- ЦВЕТОВАЯ ПАЛИТРА И КОНСТАНТЫ ---
+const COLORS = {
+  white: '#ffffff',
+  dawnPink: '#f1eae0',     // Фон
+  tuatara: '#363636',      // Текст
+  fireEngineRed: '#c82926', // Акцент
+  kimberly: '#706c91',     // Акцент 2
+  rodeoDust: '#c7b895',    // Для заблокированных
+  bone: '#e3dbca',         // Для открытых
+  forestGreen: '#2f855a',  // Для елки
 };
 
-const DayIcon = ({ day, className = "" }) => {
-  const iconsMap = {
-    1: Coffee,
-    2: CloudSun,
-    3: Heart,
-    4: Feather,
-    5: Compass,
-    6: Cat,
-    7: Shield,
-    8: Smile,
-    9: ShoppingBag,
-    10: BatteryCharging,
-    11: Wind,
-    12: Clock,
-    13: BookOpen,
-    14: Rocket,
-    15: Moon,
-    16: Crown,
-    17: Users,
-    18: Puzzle,
-    19: PartyPopper,
-    20: Music,
-    21: Sun,
-    22: Anchor,
-    23: Eye,
-    24: Coffee,
-    25: CloudSun,
-    26: Heart,
-    27: Feather,
-    28: Compass,
-    29: Cat,
-    30: Shield,
-    31: Smile,
-  };
+// --- СПИСОК ПОЖЕЛАНИЙ ---
+const WISHES_POOL = [
+  "Ты — автор своей истории, даже если сейчас сложная глава - самое время писать следующую!",
+  "Найди сегодня минуту размеренности — такой, как когда наблюдаешь за снежинками и просто дышишь.",
+  "Устрой себе 30 минут ничегонеделания — побудь в моменте без задач, спешки и тревоги. Насладись моментом.",
+  "Подари себе сегодня немного тепла — позвони близкому или обними того, кто рядом.",
+  "Найди время для уединения с хорошей книгой.",
+  "Открой день для нового знакомства — маленького, но вдохновляющего.",
+  "Пополни запас энергии — чем-то вкусным, тёплым или приятным.",
+  "Отметь своё достижение — даже если оно крошечное, оно твоё.",
+  "Сделай паузу ради качественного отдыха, а не «на бегу».",
+  "Устрой себе маленький ритуал, который повышает качество жизни.",
+  "Позаботься о себе так же качественно, как о проекте.",
+  "Скажи себе что-то доброе — так, как сказал бы в поддержку коллегe.",
+  "Спроси себя: Что бы я сделал для друга? — и сделай это для себя.",
+  "Пожелай кому-то хорошего дня — искренне.",
+  "Сделай сегодня маленький смелый шаг.",
+  "Прими решение, которое давно откладывал.",
+  "Сделай шаг к тому, кем хочешь быть в новом году.",
+  "Найди то, что делает тебя особенным — и улыбнись этому.",
+  "Отмечай необычные мысли — там источник творчества.",
+  "Позволь себе быть «странным» ровно настолько, чтобы чувствовать себя.",
+  "Прими комплимент своей неповторимости.",
+  "Признай, что ты сегодня чувствуешь — без фильтров.",
+  "Скажи себе правду про свои желания.",
+  "Прими похвалу честно, без обесценивания.",
+  "Спроси себя: “Что мне на самом деле нужно сейчас?”",
+  "Признай свою силу — без скромности.",
+  "Узнай сегодня что-то новое — пусть даже одну строчку.",
+  "Сделай шаг вперёд там, где обычно сомневаешься.",
+  "Посмотри на задачу под другим углом.",
+  "Спроси у себя: “Что новое я могу попробовать сегодня?”",
+  "Сделай одну вещь, которая делает тебя лучше, чем вчера.",
+  "Отметь, где ты уже вырос как человек?",
+  "Позволь себе ошибаться — ради роста.",
+  "Подумай о версии себя через год — и сделай шаг к ней.",
+  "Найди лучик света в своём дне — он точно есть.",
+  "Вспомни, что всегда есть путь, даже если его пока не видно.",
+  "Подумай о будущем, которое греет.",
+  "Посмотри на что-то красивое — и почувствуй лёгкость.",
+  "Сделай что-то, что дарит ощущение «всё будет хорошо».",
+  "Позволь себе поверить, что впереди много хорошего.",
+  "Сделай сегодня что-то, что вдохновляет тебя хотя бы на 1%.",
+  "Слушай музыку, которая поднимает настроение.",
+  "Зажги свечу и создай атмосферу для творчества.",
+  "Позволь себе мечтать чуть смелее.",
+  "Почувствуй красоту момента — даже если он короткий.",
+  "Устрой себе пяти минутку творческого хаоса.",
+  "Делай что-то с огоньком — даже если это мелочь.",
+  "Сделай что-то качественное ради будущего себя.",
+  "Вдохнови себя мыслью, что у тебя получается.",
+  "Позволь уникальности вести тебя в решениях.",
+  "Приложи лидерство там, где нужен маленький шаг вперёд.",
+  "Поддержи коллегу — как поддержал(а) бы себя.",
+  "Заметь рост, который произошёл незаметно.",
+  "Выбери действие, которое делает тебя лучше.",
+  "Отдавай сегодня свет, который хочешь получать.",
+  "Поймай вдохновение в простом моменте.",
+  "Прислушайся к себе честно — и сделай вывод мягко.",
+  "Удели внимание тому, что делает тебя уникальным человеком.",
+  "Найди сегодня минуту тишины — такую, в которой слышно, как декабрь успокаивает воздух.",
+  "Позволь себе замедлиться так, будто за окном впервые пошёл снег.",
+  "Подари себе ощущение начала — как утром первого января.",
+  "Сделай глоток горячего напитка и почувствуй, как возвращается спокойствие.",
+  "Скажи себе добрые слова так, будто кладёшь их под новогоднюю ёлку.",
+  "Подари себе ощущение обновления — будто год вот-вот сменится.",
+  "Посмотри на огоньки вокруг и отметь то, что зажигает внутри тебя.",
+  "Позволь себе мечтать шире — декабрь любит мечты.",
+  "Устрой 30 минут уюта — плед, тишина и ты.",
+  "Представь, что этот день — подарок. Открой его медленно, насладись.",
+  "Найди силу в себе — ту самую, которая помогает загадывать желания.",
+  "Подари себе немного веры в лучшее — как в новогоднюю ночь.",
+  "Заметь свет вокруг: в словах, людях, моментах.",
+  "Отметь всё, что ты прожил(а) в этом году — и поблагодари себя.",
+  "Позволь себе выдохнуть — как будто закрываешь последний рабочий день года.",
+  "Создай себе атмосферу, в которой хочется быть.",
+  "Вдохни глубже — воздух декабря всегда чище.",
+  "Посмотри на свой путь, как на гирлянду из маленьких побед.",
+  "Зажги свою внутреннюю «лампочку» — вдохновением или заботой.",
+  "Устрой себе аромат праздника — тем, что любишь именно ты.",
+  "Представь, что каждый шаг сегодня — шаг в новый год.",
+  "Найди что-то, что делает этот день особенным.",
+  "Услышь своё желание — то самое, настоящее.",
+  "Сделай доброе действие для себя — как подарок в декабре.",
+  "Устрой мини-очищение: выброси одну ненужную мысль.",
+  "Поддержи себя так, как поддерживают в праздничные вечера.",
+  "Посмотри на свою жизнь глазами человека, который тебя любит.",
+  "Дай себе пространство, чтобы мечтать о следующем годе.",
+  "Обними свою сегодняшнюю версию — она достойна тепла.",
+  "Попроси у декабря то, чего хочешь — и будь готов(а) это принять.",
+  "Выбери сегодня одно маленькое удовольствие и сделай его обязательным.",
+  "Вспомни, чем ты гордишься в себе — и побудь с этим.",
+  "Найди место в дне, где можно вдохнуть свежий воздух.",
+  "Поддержи себя тёплыми словами, которые обычно говоришь другим.",
+  "Попроси у дня подсказку — и будь открытым к её получению.",
+  "Обними свою сегодняшнюю версию — в ней твоя точка опоры."
+];
 
-  const Icon = iconsMap[day] || Sparkles;
-  return <Icon className={className} />;
+// --- ХЕЛПЕР: ПОДБОР ИЛЛЮСТРАЦИИ ---
+// Функция ищет ключевые слова в тексте и возвращает компонент иконки
+const getThematicIllustration = (text) => {
+  const props = { size: 48, strokeWidth: 1.5 };
+  const lowerText = text.toLowerCase();
+  
+  if (lowerText.includes("кофе") || lowerText.includes("чай") || lowerText.includes("паузу") || lowerText.includes("отдых") || lowerText.includes("ничегонеделания") || lowerText.includes("напитка") || lowerText.includes("уют")) return <Coffee {...props} color="#795548" />;
+  if (lowerText.includes("солнце") || lowerText.includes("свет") || lowerText.includes("тепла") || lowerText.includes("луч") || lowerText.includes("огоньки") || lowerText.includes("лампочку")) return <Sun {...props} color="#F59E0B" />;
+  if (lowerText.includes("сердце") || lowerText.includes("любовь") || lowerText.includes("обними") || lowerText.includes("себя") || lowerText.includes("любишь") || lowerText.includes("словами")) return <Heart {...props} color="#c82926" />;
+  if (lowerText.includes("снежинк") || lowerText.includes("небо") || lowerText.includes("тишин") || lowerText.includes("атмосферу") || lowerText.includes("снег") || lowerText.includes("декабрь")) return <CloudSun {...props} color="#706c91" />;
+  if (lowerText.includes("творчеств") || lowerText.includes("вдохнов") || lowerText.includes("мысли") || lowerText.includes("хаос") || lowerText.includes("мечтать")) return <Feather {...props} color="#c82926" />;
+  if (lowerText.includes("ошибк") || lowerText.includes("пазл") || lowerText.includes("решение") || lowerText.includes("очищение")) return <Puzzle {...props} color="#706c91" />;
+  if (lowerText.includes("кот") || lowerText.includes("животное")) return <Cat {...props} color="#363636" />;
+  if (lowerText.includes("нет") || lowerText.includes("границы") || lowerText.includes("защит") || lowerText.includes("опоры")) return <Shield {...props} color="#363636" />;
+  if (lowerText.includes("покупк") || lowerText.includes("магазин")) return <ShoppingBag {...props} color="#c82926" />;
+  if (lowerText.includes("энерги") || lowerText.includes("заряд") || lowerText.includes("сил")) return <BatteryCharging {...props} color="#706c91" />;
+  if (lowerText.includes("улыб") || lowerText.includes("смех") || lowerText.includes("радость") || lowerText.includes("хорошо") || lowerText.includes("счастливым") || lowerText.includes("удовольствие")) return <Smile {...props} color="#F59E0B" />;
+  if (lowerText.includes("дыши") || lowerText.includes("ветер") || lowerText.includes("воздух") || lowerText.includes("выдохни")) return <Wind {...props} color="#706c91" />;
+  if (lowerText.includes("время") || lowerText.includes("минут") || lowerText.includes("часы") || lowerText.includes("темп") || lowerText.includes("замедлиться")) return <Clock {...props} color="#363636" />;
+  if (lowerText.includes("книг") || lowerText.includes("чита") || lowerText.includes("автор") || lowerText.includes("глава") || lowerText.includes("истори")) return <BookOpen {...props} color="#795548" />;
+  if (lowerText.includes("шаг") || lowerText.includes("вперед") || lowerText.includes("старт") || lowerText.includes("действи") || lowerText.includes("начала")) return <Rocket {...props} color="#c82926" />;
+  if (lowerText.includes("компас") || lowerText.includes("путь") || lowerText.includes("направлени") || lowerText.includes("контроль") || lowerText.includes("подсказку")) return <Compass {...props} color="#c82926" />;
+  if (lowerText.includes("чудо") || lowerText.includes("маги") || lowerText.includes("искренне") || lowerText.includes("огоньком") || lowerText.includes("волшебство")) return <Sparkles {...props} color="#F59E0B" />;
+  if (lowerText.includes("важен") || lowerText.includes("король") || lowerText.includes("достижение") || lowerText.includes("похвал") || lowerText.includes("лидерство") || lowerText.includes("побед") || lowerText.includes("гордишься")) return <Crown {...props} color="#F59E0B" />;
+  if (lowerText.includes("праздник") || lowerText.includes("вечерин") || lowerText.includes("ритуал") || lowerText.includes("ёлку") || lowerText.includes("новый год")) return <PartyPopper {...props} color="#c82926" />;
+  if (lowerText.includes("друг") || lowerText.includes("коллег") || lowerText.includes("люд") || lowerText.includes("знакомств")) return <Users {...props} color="#706c91" />;
+  if (lowerText.includes("музык") || lowerText.includes("песн") || lowerText.includes("слушай")) return <Music {...props} color="#c82926" />;
+  if (lowerText.includes("свеч") || lowerText.includes("огонь")) return <Sun {...props} color="#F59E0B" />;
+  
+  // Дефолтная иконка - Подарок
+  return <Gift {...props} color="#c82926" />;
 };
 
-const dayCategories = {
-  1: "мягкий старт",
-  2: "замедление",
-  3: "забота о себе",
-  4: "поддержка",
-  5: "осмысление",
-  6: "отдых",
-  7: "тепло к себе",
-  8: "поддержка команды",
-  9: "шаг вперёд",
-  10: "словесная забота",
-  11: "настроение праздника",
-  12: "уютный вечер",
-  13: "благодарность",
-  14: "антиперфекционизм",
-  15: "забота о теле",
-  16: "маленькие шаги",
-  17: "радость",
-  18: "контакт с собой",
-  19: "тепло другим",
-  20: "выбор себя",
-  21: "признание нагрузки",
-  22: "маленькая радость",
-  23: "мягкие переходы",
-  24: "фокус на поддержке",
-  25: "гордость за себя",
-  26: "достаточно",
-  27: "ощущение жизни",
-  28: "тепло к себе",
-  29: "живые намерения",
-  30: "аплодисменты себе",
-  31: "сохранить тёплое",
-};
-
-const wishesPool = {
-  1: [
-    "Заметь сегодня хоть один момент, когда мир вокруг кажется чуть-чуть добрее, чем обычно.",
-    "Остановись на минуту и отметь, что в мире всё еще есть уютные, простые радости.",
-  ],
-  2: [
-    "Сделай маленькую паузу в делах и просто посмотри в окно. Подумай, за что ты благодарна себе в этом году.",
-    "Выдохни. Представь, что время на минуту замедлилось — и ты в полной безопасности.",
-  ],
-  // ... можно расширять по желанию, остальные дни пока используют базовый текст
-};
-
-const getWishForDay = (day, authoredWish) => {
-  if (authoredWish && authoredWish.trim().length > 0) return authoredWish;
-
-  const pool = wishesPool[day];
-  if (pool && pool.length > 0) {
-    const index = (day + 7) % pool.length;
-    return pool[index];
-  }
-
-  return baseWishes[day] || "Пусть этот день принесёт тебе немного тепла и поддержки.";
-};
-
-function getTodayDay() {
-  const now = new Date();
-  const month = now.getMonth(); // 0–11, декабрь — 11
-  const day = now.getDate();
-
-  if (month !== 11) return 1;
-  return Math.min(Math.max(day, 1), 31);
-}
-
-// ----------------------
-// React-компонент
-// ----------------------
-export default function App() {
-  const [currentDay] = useState(getTodayDay);
-  const [unlockedDays, setUnlockedDays] = useState([]);
-  const [selectedWishes, setSelectedWishes] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [savingDay, setSavingDay] = useState(null);
-  const [error, setError] = useState(null);
+export default function AdventCalendar() {
+  const [user, setUser] = useState(null);
+  const [openedDays, setOpenedDays] = useState({});
   const [modalData, setModalData] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  
+  // Текущая дата определяется автоматически
+  const [currentDate, setCurrentDate] = useState(1); 
 
-  const [progressCount, setProgressCount] = useState(0);
-  const [teamProgress, setTeamProgress] = useState(null);
-
-  const daysGrid = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
-
+  // Инициализация даты при запуске
   useEffect(() => {
-    const unlock = [];
-    for (let d = 1; d <= currentDay; d++) unlock.push(d);
-    setUnlockedDays(unlock);
-  }, [currentDay]);
+    const now = new Date();
+    const month = now.getMonth(); // 0-11, где 11 = Декабрь
+    const day = now.getDate();
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const dbRef = db;
-        const wishesSnap = await getDocs(collection(dbRef, "wishes"));
-        const wishes = {};
-        wishesSnap.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data && data.text) wishes[Number(docSnap.id)] = data.text;
-        });
-        setSelectedWishes(wishes);
-
-        const progressDocRef = doc(dbRef, "meta", "progress");
-        const progressSnap = await getDoc(progressDocRef);
-        if (progressSnap.exists()) {
-          const data = progressSnap.data();
-          setTeamProgress({
-            totalChosen: data.totalChosen || 0,
-            lastUpdated: data.lastUpdated || null,
-          });
-        }
-      } catch (err) {
-        console.error("Ошибка загрузки данных:", err);
-        setError("Не получилось загрузить данные. Попробуй обновить страницу.");
-      } finally {
-        setIsLoading(false);
-      }
+    if (month < 11) {
+      // Если еще не декабрь (январь-ноябрь текущего года) - календарь закрыт
+      setCurrentDate(0);
+    } else if (month === 11) {
+      // Если декабрь - ставим реальный день
+      setCurrentDate(day);
+    } else {
+      // Если год сменился (январь следующего) - можно открыть всё (31) или закрыть. 
+      // Обычно адвент остается открытым после НГ.
+      setCurrentDate(31);
     }
-
-    fetchData();
   }, []);
 
+  // 1. Авторизация
   useEffect(() => {
-    const count = Object.keys(selectedWishes).length;
-    setProgressCount(count);
-  }, [selectedWishes]);
-
-  useEffect(() => {
-    if (showModal) {
-      const original = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = original;
-      };
-    }
-  }, [showModal]);
-
-  const handleDayClick = (day) => {
-    if (!unlockedDays.includes(day)) return;
-
-    const authoredText = selectedWishes[day] || "";
-    const finalText = getWishForDay(day, authoredText);
-
-    setModalData({
-      day,
-      text: finalText,
-      category: dayCategories[day],
-      authored: Boolean(authoredText),
-    });
-    setShowModal(true);
-  };
-
-  const handleSaveWish = async (day, text) => {
-    try {
-      setSavingDay(day);
-      setError(null);
-
-      const dbRef = db;
-      const wishDocRef = doc(dbRef, "wishes", String(day));
-      await setDoc(wishDocRef, { text, updatedAt: new Date().toISOString() }, { merge: true });
-
-      const progressDocRef = doc(dbRef, "meta", "progress");
-      const snapshot = await getDoc(progressDocRef);
-      let totalChosen = Object.keys(selectedWishes).length;
-      const isNew = !selectedWishes[day];
-
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        totalChosen = data.totalChosen || totalChosen;
-        if (isNew) totalChosen += 1;
-      } else if (isNew) {
-        totalChosen += 1;
+    const initAuth = async () => {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
       }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
 
-      await setDoc(
-        progressDocRef,
-        {
-          totalChosen,
-          lastUpdated: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+  // 2. Загрузка данных
+  useEffect(() => {
+    if (!user) return;
+    const progressRef = collection(db, 'artifacts', appId, 'users', user.uid, 'advent_progress');
+    const unsubscribe = onSnapshot(progressRef, (snapshot) => {
+      const data = {};
+      snapshot.docs.forEach(doc => {
+        data[doc.id] = doc.data().message;
+      });
+      setOpenedDays(data);
+    }, (error) => console.error("Error fetching progress:", error));
+    return () => unsubscribe();
+  }, [user]);
 
-      setSelectedWishes((prev) => ({
-        ...prev,
-        [day]: text,
-      }));
+  // Управление исчезновением тоста
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
-      setTeamProgress((prev) => ({
-        totalChosen,
-        lastUpdated: new Date().toISOString(),
-        ...(prev || {}),
-      }));
-    } catch (err) {
-      console.error("Ошибка сохранения пожелания:", err);
-      setError("Не получилось сохранить пожелание. Попробуй ещё раз.");
-    } finally {
-      setSavingDay(null);
+  // Логика клика
+  const handleDayClick = async (dayNumber) => {
+    if (!user) return;
+
+    // 1. Будущее (Заблокировано) - ПОКАЗЫВАЕМ ТОСТ
+    if (dayNumber > currentDate) {
+      setToastMessage("Этот день еще не настал");
+      return; 
+    }
+
+    // 2. Уже открыто
+    if (openedDays[dayNumber]) {
+      setModalData({ day: dayNumber, text: openedDays[dayNumber], isNew: false });
+      return;
+    }
+
+    // 3. Открываем новое
+    const receivedWishes = Object.values(openedDays);
+    const availableWishes = WISHES_POOL.filter(w => !receivedWishes.includes(w));
+    const pool = availableWishes.length > 0 ? availableWishes : WISHES_POOL;
+    const randomWish = pool[Math.floor(Math.random() * pool.length)];
+
+    try {
+      const dayDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'advent_progress', String(dayNumber));
+      await setDoc(dayDocRef, { day: dayNumber, message: randomWish, openedAt: serverTimestamp() });
+      setModalData({ day: dayNumber, text: randomWish, isNew: true });
+    } catch (e) {
+      console.error("Error saving wish:", e);
     }
   };
 
-  const handleUseThisWish = async () => {
-    if (!modalData) return;
-    await handleSaveWish(modalData.day, modalData.text);
-  };
+  const closeModal = () => setModalData(null);
 
-  const closeModal = () => {
-    setShowModal(false);
-    setModalData(null);
-  };
-
-  const decoratedTitle = (
-    <div className="flex flex-col items-center gap-2 text-center">
-      <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[#f7e6d5] border border-[#e3c3a2] text-xs font-medium tracking-wide text-[#8b4a32]">
-        <TreePine className="w-3.5 h-3.5" />
-        <span>Адвент-календарь команды LifePractic</span>
-      </div>
-      <h1 className="text-[22px] leading-tight md:text-2xl font-semibold text-[#3c2415] mt-2">
-        31 день маленьких радостей
-        <br />
-        и тёплых пожеланий
-      </h1>
-    </div>
-  );
-
-  const totalDays = daysGrid.length;
-  const percent = Math.round((progressCount / totalDays) * 100);
-
-  const getThematicIllustration = (modal) => {
-    if (!modal) return null;
-
-    const iconColor = "#e2583e";
-
-    return (
-      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f8eae0] border border-[#e4c7b1] text-[11px] font-medium text-[#7a442e]">
-        <DayIcon day={modal.day} className="w-3.5 h-3.5" color={iconColor} />
-        <span>{modal.category || "Небольшая радость дня"}</span>
-      </div>
-    );
-  };
+  // Стандартная сетка 1-31
+  const daysGrid = Array.from({ length: 31 }, (_, i) => i + 1);
 
   return (
-    <div className="min-h-screen bg-[#f3e6d8] flex justify-center px-3 py-6 md:py-10">
-      <div className="w-full max-w-md md:max-w-lg bg-[#fbf3ea] rounded-3xl shadow-[0_20px_60px_rgba(90,56,32,0.18)] border border-[#e3d0bc] px-4 pb-6 pt-5 md:px-6 md:pt-6 md:pb-8 relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-multiply">
-          <div className="absolute -top-20 -right-16 w-40 h-40 rounded-full bg-[#e4b28c]" />
-          <div className="absolute -bottom-24 -left-10 w-48 h-48 rounded-full bg-[#f7cfa7]" />
-        </div>
-
-        <div className="relative space-y-5 md:space-y-6">
-          {decoratedTitle}
-
-          <div className="flex items-center justify-between gap-3 text-[11px] md:text-xs text-[#7a5a3a] px-1">
-            <div className="inline-flex items-center gap-1.5">
-              <Gift className="w-3.5 h-3.5 text-[#e2583e]" />
-              <span>Сегодня уже можно открыть:</span>
-              <span className="font-semibold text-[#3c2415]">
-                день {currentDay > 31 ? 31 : currentDay}
-              </span>
+    <div 
+      className="min-h-screen w-full flex flex-col items-center font-sans relative overflow-x-hidden selection:bg-red-200"
+      style={{ backgroundColor: COLORS.dawnPink, color: COLORS.tuatara }}
+    >
+      
+      {/* --- ШАПКА --- */}
+      <header className="w-full max-w-md p-6 flex flex-col items-center text-center mt-4">
+        <div className="mb-4">
+            <div className="bg-white p-2 rounded-xl shadow-sm border border-stone-200">
+             <span className="text-sm font-bold tracking-widest text-[#363636]">LIFEPRACTIC</span>
             </div>
+        </div>
+        
+        <h1 className="text-2xl font-bold leading-tight mb-2">
+          Адвент-календарь<br/>команды LifePractic
+        </h1>
+        <p className="text-sm opacity-60 font-medium">
+          31 день маленьких радостей и пожеланий
+        </p>
+      </header>
 
-            <div className="inline-flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#e8a548]" />
-              <span>
-                выбрано:{" "}
-                <span className="font-semibold text-[#3c2415]">
-                  {progressCount}/{totalDays}
+      {/* --- СЕТКА КАЛЕНДАРЯ --- */}
+      <main className="w-full max-w-md p-4 pb-20">
+        <div className="grid grid-cols-5 gap-3 sm:gap-4">
+          {daysGrid.map((day) => {
+            const isFuture = day > currentDate;
+            const isOpened = !!openedDays[day];
+            const isAvailable = !isFuture && !isOpened;
+            
+            const isFancyTree = day > 15;
+            const treeColor = isFancyTree ? COLORS.fireEngineRed : COLORS.forestGreen;
+
+            return (
+              <button
+                key={day}
+                onClick={() => handleDayClick(day)}
+                className={`
+                  aspect-[4/5] rounded-[18px] flex flex-col items-center justify-center relative transition-all duration-300
+                  ${isFuture ? 'cursor-not-allowed active:scale-95' : 'cursor-pointer hover:-translate-y-1 active:scale-95'}
+                `}
+                style={{
+                  backgroundColor: isOpened ? COLORS.bone : (isFuture ? COLORS.dawnPink : COLORS.white),
+                  border: isAvailable ? `2px solid ${COLORS.fireEngineRed}` : (isFuture ? `1px solid rgba(199, 184, 149, 0.3)` : 'none'),
+                  boxShadow: isAvailable ? '0 4px 12px rgba(200, 41, 38, 0.15)' : 'none',
+                  opacity: isFuture ? 0.8 : 1
+                }}
+              >
+                <span 
+                  className={`font-semibold z-10 text-lg ${isFuture ? 'opacity-40' : ''}`}
+                  style={{ color: isFuture ? COLORS.rodeoDust : COLORS.tuatara }}
+                >
+                  {day}
                 </span>
-              </span>
-            </div>
-          </div>
 
-          <div className="mt-1">
-            <div className="w-full h-1.5 rounded-full bg-[#ead5c1] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#e2583e] via-[#f0a14a] to-[#f6cf7f]"
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-            <div className="mt-1.5 flex justify-between text-[10px] text-[#7a5a3a] px-0.5">
-              <span>наш маленький прогресс</span>
-              <span>{percent}% декабря с теплом</span>
-            </div>
-          </div>
-
-          {teamProgress && (
-            <div className="mt-1.5 px-3 py-2.5 rounded-2xl bg-[#f7ebde] border border-[#e2cbb3] text-[11px] text-[#6c4b30] flex items-start gap-2">
-              <Heart className="w-3.5 h-3.5 mt-0.5 text-[#e2583e]" />
-              <div>
-                <div className="font-medium">
-                  Команда уже выбрала {teamProgress.totalChosen || progressCount} тёплых дней
+                <div className="mt-1">
+                  {isFuture && (
+                    <Lock size={14} color={COLORS.rodeoDust} className="opacity-60" />
+                  )}
+                  {isOpened && (
+                    <div className="flex items-center justify-center animate-pulse relative">
+                      <TreePine size={16} color={treeColor} />
+                      {isFancyTree && (
+                        <Sparkles size={10} color={COLORS.rodeoDust} className="absolute -top-1 -right-1" />
+                      )}
+                    </div>
+                  )}
                 </div>
-                {teamProgress.lastUpdated && (
-                  <div className="mt-0.5 text-[10px] opacity-75">
-                    обновлялось: {new Date(teamProgress.lastUpdated).toLocaleString("ru-RU", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="px-3 py-2.5 rounded-2xl bg-[#fdeae6] border border-[#f4b5a2] text-[11px] text-[#8b3b2d]">
-              {error}
-            </div>
-          )}
-
-          <div className="mt-1.5">
-            <div className="grid grid-cols-5 gap-2 md:gap-3">
-              {daysGrid.map((day) => {
-                const isUnlocked = unlockedDays.includes(day);
-                const isToday = day === currentDay;
-                const isSelected = Boolean(selectedWishes[day]);
-                const isPastSelected = isSelected && day < currentDay;
-                const isFuture = day > currentDay;
-
-                const bgClass = isUnlocked
-                  ? isToday
-                    ? "bg-[#fdf7f1]"
-                    : "bg-[#f9efe3]"
-                  : "bg-[#f1e3d4]";
-
-                const borderClass = isToday
-                  ? "border-2 border-[#e2583e]"
-                  : isSelected
-                  ? "border border-[#df9b6f]"
-                  : "border border-[#e0cbb6]";
-
-                const textClass = isUnlocked ? "text-[#3c2415]" : "text-[#b79b7f]";
-
-                return (
-                  <button
-                    key={day}
-                    onClick={() => handleDayClick(day)}
-                    disabled={!isUnlocked}
-                    className={[
-                      "relative rounded-2xl md:rounded-3xl px-0.5 pt-2 pb-1.5 md:pt-2.5 md:pb-2 flex flex-col items-center justify-between transition-all duration-200",
-                      "shadow-[0_1px_0_rgba(255,255,255,0.7)] hover:-translate-y-0.5 hover:shadow-[0_6px_18px_rgba(90,56,32,0.18)]",
-                      "disabled:opacity-70 disabled:cursor-default",
-                      bgClass,
-                      borderClass,
-                    ].join(" ")}
-                  >
-                    <span className={`text-xs md:text-sm font-semibold ${textClass}`}>{day}</span>
-
-                    <div className="mt-0.5 mb-0.5 h-4 md:h-5 flex items-center justify-center">
-                      {isUnlocked ? (
-                        isSelected ? (
-                          <Heart className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#e2583e] fill-[#e2583e]/70" />
-                        ) : (
-                          <DayIcon
-                            day={day}
-                            className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#c0814a]"
-                          />
-                        )
-                      ) : (
-                        <Lock className="w-3 h-3 md:w-3.5 md:h-3.5 text-[#c9b09a]" />
-                      )}
-                    </div>
-
-                    <div className="h-3 md:h-4 flex items-end justify-center">
-                      {isPastSelected && (
-                        <span className="text-[9px] md:text-[10px] text-[#8b5a37] bg-[#f3e1cf] rounded-full px-1.5 py-0.5">
-                          уже с нами
-                        </span>
-                      )}
-                      {isSelected && !isPastSelected && (
-                        <span className="text-[9px] md:text-[10px] text-[#8b5a37] bg-[#f3e1cf] rounded-full px-1.5 py-0.5">
-                          выбрано
-                        </span>
-                      )}
-                      {!isSelected && isToday && (
-                        <span className="text-[9px] md:text-[10px] text-[#8b4a32] bg-[#fbe1d1] rounded-full px-1.5 py-0.5">
-                          сегодня
-                        </span>
-                      )}
-                      {!isUnlocked && isFuture && (
-                        <span className="text-[9px] md:text-[10px] text-[#aa8a6e] bg-[#ecddcc] rounded-full px-1.5 py-0.5">
-                          скоро
-                        </span>
-                      )}
-                    </div>
-
-                    {isToday && (
-                      <div className="absolute -top-1.5 right-1.5 md:-top-2 md:right-2">
-                        <TreePine className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#e2583e]" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </main>
 
-      {showModal && modalData && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
+      {/* --- ТОСТ / УВЕДОМЛЕНИЕ --- */}
+      {toastMessage && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in fade-in zoom-in duration-200">
+           <div className="bg-[#363636] text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+             <Lock size={16} className="text-[#e3dbca]" />
+             {toastMessage}
+           </div>
+        </div>
+      )}
+
+      {/* --- МОДАЛЬНОЕ ОКНО --- */}
+      {modalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
             onClick={closeModal}
-            aria-hidden="true"
-          />
-
-          <div className="relative z-50 w-full max-w-md mx-4">
-            <div className="bg-[#fdf7f1] rounded-3xl shadow-2xl border border-[#e3d2bf] px-5 py-6 md:px-7 md:py-7">
-              <div className="flex justify-between items-start gap-3 mb-3">
-                <div className="space-y-1.5">
-                  {getThematicIllustration(modalData)}
-                  <div className="flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-[#e2583e]" />
-                    <span className="text-xs uppercase tracking-[0.16em] text-[#a06a48] font-medium">
-                      День {modalData.day}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={closeModal}
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#f2e3d5] hover:bg-[#e6d3c1] border border-[#dfc7b0] text-[#7a4f32] transition-colors"
-                  aria-label="Закрыть"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="mt-1 mb-4">
-                <p className="text-[13px] leading-relaxed text-[#3c2415] whitespace-pre-line">
-                  {modalData.text}
-                </p>
-              </div>
-
-              <div className="space-y-2.5">
-                {!selectedWishes[modalData.day] && (
-                  <button
-                    onClick={handleUseThisWish}
-                    disabled={savingDay === modalData.day}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-[#e2583e] hover:bg-[#d54c33] text-white text-[13px] font-medium px-4 py-2.5 rounded-2xl shadow-[0_8px_20px_rgba(226,88,62,0.55)] transition-all disabled:opacity-70 disabled:cursor-default"
-                  >
-                    <Gift className="w-4 h-4" />
-                    {savingDay === modalData.day ? "Сохраняем..." : "Сохранить этот день как наш"}
-                  </button>
-                )}
-
-                {selectedWishes[modalData.day] && (
-                  <div className="w-full px-3 py-2.5 rounded-2xl bg-[#f7ebde] border border-[#e2cbb3] text-[11px] text-[#6c4b30] flex items-center gap-2">
-                    <Heart className="w-3.5 h-3.5 text-[#e2583e] fill-[#e2583e]/70" />
-                    <span>Этот день уже живёт в нашем адвенте.</span>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="w-full inline-flex items-center justify-center gap-2 text-[12px] text-[#7a5a3a] mt-1"
-                >
-                  <span>Вернуться к календарю</span>
-                </button>
-              </div>
+          ></div>
+          
+          <div 
+            className="bg-white w-full max-w-sm rounded-[24px] p-8 relative shadow-2xl transform transition-all scale-100 flex flex-col items-center text-center animate-in fade-in zoom-in duration-300"
+          >
+            {/* Динамическая иконка/иллюстрация на основе текста */}
+            <div className="mb-6 bg-[#f1eae0] p-6 rounded-full inline-flex items-center justify-center shadow-inner">
+                {getThematicIllustration(modalData.text)}
             </div>
+
+            <h3 className="text-xl font-bold mb-2 text-[#363636]">
+              День {modalData.day}
+            </h3>
+            
+            <div className="w-12 h-1 bg-[#c82926] rounded-full mb-6 opacity-20 mx-auto"></div>
+
+            <p className="text-lg leading-relaxed mb-8 text-[#363636]">
+              «{modalData.text}»
+            </p>
+
+            <button
+              onClick={closeModal}
+              className="w-full py-3.5 rounded-xl font-semibold text-white transition-transform active:scale-95 shadow-lg shadow-red-200"
+              style={{ backgroundColor: COLORS.fireEngineRed }}
+            >
+              Вернуться к календарю
+            </button>
           </div>
         </div>
       )}
+
     </div>
   );
 }
