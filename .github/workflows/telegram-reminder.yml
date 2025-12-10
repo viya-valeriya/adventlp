@@ -1,0 +1,29 @@
+name: Daily Telegram Advent Reminder
+
+on:
+  schedule:
+    # Каждый день в 06:00 UTC (09:00 по Мск зимой, UTC+3)
+    - cron: '0 6 * * *'
+  # Возможность запускать вручную из вкладки Actions
+  workflow_dispatch:
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send Telegram reminder
+        run: node scripts/send-reminders.js
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
